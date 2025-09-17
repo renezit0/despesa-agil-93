@@ -94,38 +94,38 @@ export default function ExpenseInstances() {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <DollarSign className="h-5 w-5 text-blue-600" />
-              <div>
-                <p className="text-sm font-medium">Total do Mês</p>
-                <p className="text-2xl font-bold">R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="pt-4 sm:pt-6 p-4 sm:p-6">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium truncate">Total do Mês</p>
+                <p className="text-lg sm:text-2xl font-bold truncate">R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
-              <div>
-                <p className="text-sm font-medium">Valores Pagos</p>
-                <p className="text-2xl font-bold text-green-600">R$ {paidAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="pt-4 sm:pt-6 p-4 sm:p-6">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium truncate">Valores Pagos</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-600 truncate">R$ {paidAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <TrendingDown className="h-5 w-5 text-red-600" />
-              <div>
-                <p className="text-sm font-medium">Pendentes</p>
-                <p className="text-2xl font-bold text-red-600">R$ {pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+        <Card className="hover:shadow-md transition-shadow sm:col-span-2 lg:col-span-1">
+          <CardContent className="pt-4 sm:pt-6 p-4 sm:p-6">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 text-red-600 flex-shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium truncate">Pendentes</p>
+                <p className="text-lg sm:text-2xl font-bold text-red-600 truncate">R$ {pendingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </CardContent>

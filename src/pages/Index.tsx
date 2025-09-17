@@ -10,7 +10,7 @@ import { QuickStats } from "@/components/QuickStats";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Wallet, TrendingDown, Calendar, CheckCircle, LogOut, User, Users } from "lucide-react";
 import { isBefore } from "date-fns";
-import financialHero from "@/assets/financial-hero.jpg";
+import gastoseellIcon from "@/assets/gastoseell-icon.png";
 
 const Index = () => {
   const { user, signOut, loading } = useAuth();
@@ -82,17 +82,16 @@ const Index = () => {
         <div className="container mx-auto px-4 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
             <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
-              <div className="relative w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-primary-foreground shadow-lg flex-shrink-0">
+              <div className="relative w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 rounded-xl overflow-hidden bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-lg flex-shrink-0">
                 <img 
-                  src={financialHero} 
-                  alt="Controle Financeiro" 
-                  className="w-full h-full object-cover opacity-80"
+                  src={gastoseellIcon} 
+                  alt="GastoseeLL Logo" 
+                  className="w-full h-full object-contain p-1"
                 />
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
               </div>
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg sm:text-xl lg:text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent truncate">
-                  DespesaÁgil
+                  GastoseeLL
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground truncate">
                   Controle inteligente de gastos

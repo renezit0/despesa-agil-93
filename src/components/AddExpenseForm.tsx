@@ -163,11 +163,11 @@ export function AddExpenseForm() {
   };
 
   return (
-    <Card className="p-6 animate-slide-up">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold">Adicionar Gasto</h3>
-          <p className="text-sm text-muted-foreground">
+    <Card className="p-4 sm:p-6 animate-slide-up">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base sm:text-lg font-semibold truncate">Adicionar Gasto</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Cadastre gastos normais ou financiamentos com desconto antecipado
           </p>
         </div>
@@ -175,18 +175,18 @@ export function AddExpenseForm() {
           variant="outline"
           size="sm"
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-2"
+          className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm w-full sm:w-auto"
         >
-          <Plus className="h-4 w-4" />
-          <span>{isOpen ? 'Fechar' : 'Novo Gasto'}</span>
+          <Plus className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+          <span className="truncate">{isOpen ? 'Fechar' : 'Novo Gasto'}</span>
         </Button>
       </div>
 
       {isOpen && (
-        <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 animate-fade-in max-h-[80vh] overflow-y-auto px-1">
           {/* Tipo de Gasto */}
           <div className="space-y-2">
-            <Label>Tipo de Gasto *</Label>
+            <Label className="text-sm">Tipo de Gasto *</Label>
             <Select 
               value={formData.expenseType} 
               onValueChange={(value) => {
@@ -211,9 +211,9 @@ export function AddExpenseForm() {
           </div>
 
           {/* Informações Básicas */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Informações Básicas</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3 sm:space-y-4">
+            <h3 className="text-base sm:text-lg font-medium">Informações Básicas</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Título *</Label>
                 <Input
