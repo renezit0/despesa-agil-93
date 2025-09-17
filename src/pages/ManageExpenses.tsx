@@ -138,14 +138,11 @@ const ManageExpenses = () => {
         (sum, t) => sum + t.payment_amount + t.discount_amount, 0
       );
 
-      // Parcelas pagas individualmente
-      const paidFromInstances = expenseInstances
-        .filter(inst => 
-          inst.expense_id === expense.id && 
-          inst.instance_type === 'financing' && 
-          inst.is_paid
-        )
-        .reduce((sum, inst) => sum + inst.amount, 0);
+      // Parcelas pagas individualmente - buscar apenas as necessárias
+      const financingInstances = expenseInstances.filter(
+        inst => inst.expense_id === expense.id && inst.instance_type === 'financing' && inst.is_paid
+      );
+      const paidFromInstances = financingInstances.reduce((sum, inst) => sum + inst.amount, 0);
 
       // Total efetivamente pago = transações + parcelas individuais
       const totalEffectivelyPaid = totalFromTransactions + paidFromInstances;
@@ -157,9 +154,11 @@ const ManageExpenses = () => {
     }
   };
 
-  // Calcular totais pagos para todos os expenses
+  // Calcular totais pagos para todos os expenses (com debounce)
   useEffect(() => {
-    const calculateAllTotals = async () => {
+    const timeoutId = setTimeout(async () => {
+      if (expenses.length === 0) return;
+
       const totals: Record<string, number> = {};
       for (const expense of expenses) {
         if (expense.is_financing) {
@@ -167,12 +166,10 @@ const ManageExpenses = () => {
         }
       }
       setTotalsPaid(totals);
-    };
+    }, 300); // 300ms de debounce
 
-    if (expenses.length > 0) {
-      calculateAllTotals();
-    }
-  }, [expenses, expenseInstances]);
+    return () => clearTimeout(timeoutId);
+  }, [expenses]);
 
   const handleDelete = async (expense: Expense) => {
     if (confirm(`Tem certeza que deseja excluir "${expense.title}"?`)) {

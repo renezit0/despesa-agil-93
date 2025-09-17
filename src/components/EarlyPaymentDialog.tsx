@@ -45,21 +45,28 @@ export function EarlyPaymentDialog({
   // Buscar transações de pagamento para calcular total real
   useEffect(() => {
     const fetchTransactions = async () => {
-      if (!expense?.id) return;
+      if (!expense?.id || !expense.is_financing) return;
 
-      const { data: transactions, error } = await supabase
-        .from('payment_transactions')
-        .select('payment_amount, discount_amount')
-        .eq('expense_id', expense.id);
+      try {
+        const { data: transactions, error } = await supabase
+          .from('payment_transactions')
+          .select('payment_amount, discount_amount')
+          .eq('expense_id', expense.id);
 
-      if (!error && transactions) {
-        const total = transactions.reduce((sum, t) => sum + t.payment_amount + t.discount_amount, 0);
-        setTotalFromTransactions(total);
+        if (!error && transactions) {
+          const total = transactions.reduce((sum, t) => sum + t.payment_amount + t.discount_amount, 0);
+          setTotalFromTransactions(total);
+        } else {
+          setTotalFromTransactions(0);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar transações:', error);
+        setTotalFromTransactions(0);
       }
     };
 
     fetchTransactions();
-  }, [expense?.id]);
+  }, [expense?.id, open]); // Só refaz quando abre o modal ou muda o expense
 
   if (!expense?.is_financing) return null;
 
