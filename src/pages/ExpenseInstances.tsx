@@ -16,7 +16,6 @@ export default function ExpenseInstances() {
   const [selectedFinancing, setSelectedFinancing] = useState(null);
   const [selectedInstance, setSelectedInstance] = useState(null);
   const [financingInstances, setFinancingInstances] = useState([]);
-  const [isChangingMonth, setIsChangingMonth] = useState(false);
   const { 
     expenseInstances, 
     generateExpenseInstances, 
@@ -27,16 +26,7 @@ export default function ExpenseInstances() {
 
   // Generate instances when component mounts or month changes
   useEffect(() => {
-    const generateInstances = async () => {
-      setIsChangingMonth(true);
-      try {
-        await generateExpenseInstances(currentMonth);
-      } finally {
-        setIsChangingMonth(false);
-      }
-    };
-    
-    generateInstances();
+    generateExpenseInstances(currentMonth);
   }, [currentMonth, generateExpenseInstances]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -58,14 +48,12 @@ export default function ExpenseInstances() {
   const paidAmount = currentMonthInstances.filter(e => e.is_paid).reduce((sum, instance) => sum + instance.amount, 0);
   const pendingAmount = totalAmount - paidAmount;
 
-  if (loading || isChangingMonth) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">
-            {isChangingMonth ? 'Carregando gastos do mês...' : 'Carregando gastos...'}
-          </p>
+          <p className="mt-2 text-muted-foreground">Carregando gastos...</p>
         </div>
       </div>
     );

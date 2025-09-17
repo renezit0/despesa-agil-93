@@ -90,7 +90,7 @@ export const useExpenses = () => {
   };
 
   const generateExpenseInstances = async (targetMonth: Date) => {
-    if (!user || expenses.length === 0) return;
+    if (!user) return;
 
     try {
       // Fetch existing instances for the target month
