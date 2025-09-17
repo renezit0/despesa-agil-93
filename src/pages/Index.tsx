@@ -15,7 +15,15 @@ import financialHero from "@/assets/financial-hero.jpg";
 const Index = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const { expenses, expenseInstances, loading: expensesLoading, updateExpense, deleteExpense, generateExpenseInstances, toggleInstancePaid } = useExpenses();
+  const { expenses, expenseInstances, allTimeInstances, loading: expensesLoading, updateExpense, deleteExpense, generateExpenseInstances, toggleInstancePaid } = useExpenses();
+  
+  // DEBUG: Log dos dados
+  console.log('🔍 INDEX DEBUG:', {
+    expenses: expenses.length,
+    expenseInstances: expenseInstances.length,
+    allTimeInstances: allTimeInstances.length,
+    allTimeInstancesData: allTimeInstances
+  });
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -172,7 +180,7 @@ const Index = () => {
         {/* Charts */}
         {(expenses.length > 0 || expenseInstances.length > 0) && (
           <section>
-            <ExpenseChart expenses={expenses} expenseInstances={expenseInstances} />
+            <ExpenseChart expenses={expenses} expenseInstances={allTimeInstances} />
           </section>
         )}
 

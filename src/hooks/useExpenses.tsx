@@ -60,7 +60,46 @@ export const useExpenses = () => {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseInstances, setExpenseInstances] = useState<ExpenseInstance[]>([]);
+  const [allTimeInstances, setAllTimeInstances] = useState<ExpenseInstance[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Função para buscar TODAS as instâncias (para o gráfico)
+  const fetchAllTimeInstances = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: allInstances, error } = await supabase
+        .from('expense_instances')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      const instancesWithExpense = allInstances?.map(instance => {
+        const originalExpense = expenses.find(exp => exp.id === instance.expense_id);
+        return {
+          id: instance.id,
+          expense_id: instance.expense_id,
+          title: originalExpense?.title || 'Expense não encontrado',
+          description: originalExpense?.description,
+          amount: instance.amount,
+          category_id: originalExpense?.category_id,
+          due_date: instance.instance_date,
+          is_paid: instance.is_paid,
+          instance_type: instance.instance_type as 'normal' | 'recurring' | 'financing',
+          installment_number: instance.installment_number,
+          instance_date: instance.instance_date,
+          original_expense: originalExpense
+        } as ExpenseInstance;
+      }) || [];
+      
+      setAllTimeInstances(instancesWithExpense);
+      console.log('🔍 ALL TIME INSTANCES:', instancesWithExpense.length);
+      
+    } catch (error) {
+      console.error('Error fetching all time instances:', error);
+    }
+  };
 
   const fetchExpenses = async () => {
     if (!user) return;
@@ -92,6 +131,8 @@ export const useExpenses = () => {
   const generateExpenseInstances = async (targetMonth: Date) => {
     if (!user) return;
 
+    console.log('🔍 GENERATING INSTANCES FOR MONTH:', targetMonth);
+
     try {
       // Fetch existing instances for the target month
       const startDate = startOfMonth(targetMonth);
@@ -105,6 +146,9 @@ export const useExpenses = () => {
         .lte('instance_date', format(endDate, 'yyyy-MM-dd'));
 
       if (error) throw error;
+
+      console.log('🔍 EXISTING INSTANCES FROM DB:', existingInstances?.length || 0);
+      console.log('🔍 INSTANCES DATA:', existingInstances);
 
       const instances: ExpenseInstance[] = [];
       const instanceMap = new Map();
@@ -689,6 +733,7 @@ export const useExpenses = () => {
   useEffect(() => {
     if (expenses.length > 0) {
       generateExpenseInstances(new Date());
+      fetchAllTimeInstances(); // Buscar todas as instâncias para o gráfico
     }
   }, [expenses]);
 
@@ -699,6 +744,7 @@ export const useExpenses = () => {
   return {
     expenses,
     expenseInstances,
+    allTimeInstances, // Adicionar todas as instâncias para o gráfico
     loading,
     addExpense,
     updateExpense,
