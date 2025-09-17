@@ -115,7 +115,16 @@ const ManageExpenses = () => {
 
   // Calculate total paid amount including individual installments
   const calculateTotalPaidAmount = (expense: Expense) => {
+    console.log('calculateTotalPaidAmount called for expense:', expense.id, 'is_financing:', expense.is_financing);
+    console.log('expenseInstances available:', !!expenseInstances, 'length:', expenseInstances?.length || 0);
+    
     if (!expense.is_financing) {
+      return expense.financing_paid_amount || 0;
+    }
+
+    // Safety check for expenseInstances
+    if (!expenseInstances || expenseInstances.length === 0) {
+      console.log('No expense instances available, returning financing_paid_amount:', expense.financing_paid_amount || 0);
       return expense.financing_paid_amount || 0;
     }
 
@@ -129,6 +138,7 @@ const ManageExpenses = () => {
     const paidFromInstances = paidInstances.reduce((sum, inst) => sum + inst.amount, 0);
     const paidFromPayments = expense.financing_paid_amount || 0;
     
+    console.log('Paid from instances:', paidFromInstances, 'Paid from payments:', paidFromPayments);
     return paidFromInstances + paidFromPayments;
   };
 
