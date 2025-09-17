@@ -501,6 +501,12 @@ export const useExpenses = () => {
   };
 
   const makeEarlyPayment = async (expenseId: string, paymentAmount: number, customDiscount: number = 0) => {
+    console.log('🔥 makeEarlyPayment RECEBEU:', {
+      expenseId,
+      paymentAmount,
+      customDiscount
+    });
+    
     const expense = expenses.find(e => e.id === expenseId);
     if (!expense || !expense.is_financing) return;
 
@@ -515,6 +521,12 @@ export const useExpenses = () => {
     // LÓGICA CORRIGIDA: Qualquer valor menor que o devido É desconto
     let newDiscountAmount = discountAmount + customDiscount;
     
+    console.log('🎯 CÁLCULO DO DESCONTO:', {
+      'descontoAnterior': discountAmount,
+      'descontoPersonalizado': customDiscount,
+      'novoDescontoTotal': newDiscountAmount
+    });
+    
     // Se tem taxa de desconto E está pagando o valor total, aplica a taxa também
     if (discountRate > 0 && paymentAmount >= remainingAmount) {
       const automaticDiscount = remainingAmount * (discountRate / 100);
@@ -526,7 +538,7 @@ export const useExpenses = () => {
     const isFullyPaid = newPaidAmount >= totalAfterDiscount;
 
     console.log('=== UPDATING EXPENSE ===');
-    console.log('Update payload:', {
+    console.log('🔥 PAYLOAD FINAL:', {
       financing_paid_amount: newPaidAmount,
       financing_discount_amount: newDiscountAmount,
       is_paid: isFullyPaid,
@@ -540,7 +552,7 @@ export const useExpenses = () => {
       paid_at: isFullyPaid ? new Date().toISOString() : undefined,
     });
     
-    console.log('=== EXPENSE UPDATED ===');
+    console.log('✅ UPDATE COMPLETED');
   };
 
   // Auto-generate instances when expenses change or month is selected
