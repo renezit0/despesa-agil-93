@@ -29,8 +29,13 @@ export function ExpenseChart({ expenses, expenseInstances = [] }: ExpenseChartPr
   const [chartType, setChartType] = useState<"monthly" | "category" | "trend">("monthly");
   const [period, setPeriod] = useState("6"); // months
 
-  // Enhanced data combining expenses and instances correctly
+  // Enhanced data combining expenses and instances correctly with stable state
   const allExpenseData = () => {
+    // Garantir que sempre retorna dados consistentes
+    if (!expenses.length && !expenseInstances.length) {
+      return [];
+    }
+    
     const combined = [];
     
     // Para expenses de financiamento, usar as instâncias
@@ -89,8 +94,6 @@ export function ExpenseChart({ expenses, expenseInstances = [] }: ExpenseChartPr
       }
     });
     
-    console.log('Chart data:', combined);
-    console.log('Paid items:', combined.filter(item => item.is_paid));
     return combined;
   };
 

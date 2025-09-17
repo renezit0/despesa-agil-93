@@ -63,7 +63,7 @@ export const useExpenses = () => {
   const [allTimeInstances, setAllTimeInstances] = useState<ExpenseInstance[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Função para buscar TODAS as instâncias (para o gráfico)
+  // Função para buscar TODAS as instâncias (para o gráfico) sem resetar
   const fetchAllTimeInstances = async () => {
     if (!user) return;
     
@@ -74,6 +74,10 @@ export const useExpenses = () => {
         .eq('user_id', user.id);
 
       if (error) throw error;
+      
+      // Só atualizar se há mudanças reais
+      const newInstancesLength = allInstances?.length || 0;
+      if (newInstancesLength !== allTimeInstances.length) {
       
       const instancesWithExpense = allInstances?.map(instance => {
         const originalExpense = expenses.find(exp => exp.id === instance.expense_id);
@@ -93,8 +97,9 @@ export const useExpenses = () => {
         } as ExpenseInstance;
       }) || [];
       
-      setAllTimeInstances(instancesWithExpense);
-      console.log('🔍 ALL TIME INSTANCES:', instancesWithExpense.length);
+        setAllTimeInstances(instancesWithExpense);
+        console.log('🔍 ALL TIME INSTANCES UPDATED:', instancesWithExpense.length);
+      }
       
     } catch (error) {
       console.error('Error fetching all time instances:', error);
@@ -254,7 +259,18 @@ export const useExpenses = () => {
         }
       }
 
-      setExpenseInstances(instances);
+      // Atualizar instâncias sem resetar completamente para evitar piscar
+      setExpenseInstances(prevInstances => {
+        // Manter instâncias existentes que não são do mês atual
+        const currentMonthInstances = instances;
+        const otherMonthInstances = prevInstances.filter(instance => {
+          const instanceMonth = startOfMonth(new Date(instance.instance_date));
+          const targetMonthStart = startOfMonth(targetMonth);
+          return instanceMonth.getTime() !== targetMonthStart.getTime();
+        });
+        
+        return [...otherMonthInstances, ...currentMonthInstances];
+      });
     } catch (error) {
       console.error('Error generating expense instances:', error);
     }
