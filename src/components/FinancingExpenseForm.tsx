@@ -156,18 +156,27 @@ export const FinancingExpenseForm = () => {
                         required
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="amount">Valor da Parcela *</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                        placeholder="1200.00"
-                        required
-                      />
-                    </div>
+                     <div className="space-y-2">
+                       <Label htmlFor="amount">Valor da Parcela *</Label>
+                       <Input
+                         id="amount"
+                         type="number"
+                         step="0.01"
+                         value={formData.amount}
+                         onChange={(e) => {
+                           const amount = e.target.value;
+                           const months = parseInt(formData.financing_months_total) || 0;
+                           const total = amount && months ? (parseFloat(amount) * months).toString() : "";
+                           setFormData(prev => ({ 
+                             ...prev, 
+                             amount,
+                             financing_total_amount: total
+                           }));
+                         }}
+                         placeholder="1200.00"
+                         required
+                       />
+                     </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -210,40 +219,54 @@ export const FinancingExpenseForm = () => {
                   </div>
 
                   {formData.is_financing && (
-                    <div className="grid grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/50">
-                      <div className="space-y-2">
-                        <Label htmlFor="financing_total_amount">Valor Total</Label>
-                        <Input
-                          id="financing_total_amount"
-                          type="number"
-                          step="0.01"
-                          value={formData.financing_total_amount}
-                          onChange={(e) => setFormData(prev => ({ ...prev, financing_total_amount: e.target.value }))}
-                          placeholder="57600.00"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="financing_months_total">Total de Parcelas</Label>
-                        <Input
-                          id="financing_months_total"
-                          type="number"
-                          value={formData.financing_months_total}
-                          onChange={(e) => setFormData(prev => ({ ...prev, financing_months_total: e.target.value }))}
-                          placeholder="48"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="early_payment_discount_rate">Desconto Antecipação (%)</Label>
-                        <Input
-                          id="early_payment_discount_rate"
-                          type="number"
-                          step="0.1"
-                          value={formData.early_payment_discount_rate}
-                          onChange={(e) => setFormData(prev => ({ ...prev, early_payment_discount_rate: e.target.value }))}
-                          placeholder="5.0"
-                        />
-                      </div>
-                    </div>
+                     <div className="grid grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/50">
+                       <div className="space-y-2">
+                         <Label htmlFor="financing_months_total">Total de Parcelas *</Label>
+                         <Input
+                           id="financing_months_total"
+                           type="number"
+                           value={formData.financing_months_total}
+                           onChange={(e) => {
+                             const months = e.target.value;
+                             const amount = parseFloat(formData.amount) || 0;
+                             const total = months ? (amount * parseInt(months)).toString() : "";
+                             setFormData(prev => ({ 
+                               ...prev, 
+                               financing_months_total: months,
+                               financing_total_amount: total
+                             }));
+                           }}
+                           placeholder="48"
+                           required
+                         />
+                       </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="financing_total_amount">Valor Total (Calculado)</Label>
+                         <Input
+                           id="financing_total_amount"
+                           type="number"
+                           step="0.01"
+                           value={formData.financing_total_amount}
+                           disabled
+                           placeholder="Calculado automaticamente"
+                           className="bg-muted"
+                         />
+                         <p className="text-xs text-muted-foreground">
+                           Calculado: Parcela × Quantidade
+                         </p>
+                       </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="early_payment_discount_rate">Desconto Antecipação (%)</Label>
+                         <Input
+                           id="early_payment_discount_rate"
+                           type="number"
+                           step="0.1"
+                           value={formData.early_payment_discount_rate}
+                           onChange={(e) => setFormData(prev => ({ ...prev, early_payment_discount_rate: e.target.value }))}
+                           placeholder="5.0"
+                         />
+                       </div>
+                     </div>
                   )}
                 </div>
 

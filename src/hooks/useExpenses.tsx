@@ -176,8 +176,14 @@ export const useExpenses = () => {
           const monthsSinceStart = (targetMonth.getFullYear() - financingStart.getFullYear()) * 12 + 
                                    (targetMonth.getMonth() - financingStart.getMonth());
           
-          // Check if this month should have a financing installment
-          if (monthsSinceStart >= 0 && monthsSinceStart < expense.financing_months_total) {
+          // Check if financing is fully paid
+          const totalAmount = expense.financing_total_amount;
+          const paidAmount = expense.financing_paid_amount || 0;
+          const discountAmount = expense.financing_discount_amount || 0;
+          const isFullyPaid = paidAmount >= (totalAmount - discountAmount);
+          
+          // Only show installments if not fully paid and within the financing period
+          if (!isFullyPaid && monthsSinceStart >= 0 && monthsSinceStart < expense.financing_months_total) {
             const installmentNumber = monthsSinceStart + 1;
             const installmentAmount = expense.financing_total_amount / expense.financing_months_total;
             const monthlyDueDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), financingStart.getDate());
@@ -407,22 +413,28 @@ export const useExpenses = () => {
     const monthsTotal = expense.financing_months_total || 0;
     const monthsPaid = expense.financing_months_paid || 0;
 
-    // Calculate discount if early payment
-    const { discount } = calculateFinancingDiscount(
-      totalAmount,
-      monthsTotal,
-      monthsPaid,
-      expense.early_payment_discount_rate || 0
-    );
+    // Calculate remaining amount after current payments and discounts
+    const remainingAmount = totalAmount - paidAmount - discountAmount;
+    const discountRate = expense.early_payment_discount_rate || 0;
+    
+    // If this payment will complete the financing, apply full discount to remaining amount
+    const isFullPayment = paymentAmount >= remainingAmount;
+    let newDiscountAmount = discountAmount;
+    
+    if (isFullPayment && discountRate > 0) {
+      // Apply discount to the remaining amount
+      const discount = remainingAmount * (discountRate / 100);
+      newDiscountAmount = discountAmount + discount;
+    }
 
     const newPaidAmount = paidAmount + paymentAmount;
-    const newDiscountAmount = discountAmount + discount;
+    const isFullyPaid = newPaidAmount >= (totalAmount - newDiscountAmount);
 
     await updateExpense(expenseId, {
       financing_paid_amount: newPaidAmount,
       financing_discount_amount: newDiscountAmount,
-      is_paid: newPaidAmount >= (totalAmount - newDiscountAmount),
-      paid_at: newPaidAmount >= (totalAmount - newDiscountAmount) ? new Date().toISOString() : undefined,
+      is_paid: isFullyPaid,
+      paid_at: isFullyPaid ? new Date().toISOString() : undefined,
     });
   };
 

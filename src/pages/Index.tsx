@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useExpenses } from "@/hooks/useExpenses";
 import { FinancialSummaryCard } from "@/components/FinancialSummaryCard";
 import { AddExpenseForm } from "@/components/AddExpenseForm";
-import { ExpenseList } from "@/components/ExpenseList";
+import ExpenseInstances from "@/pages/ExpenseInstances";
 import { ExpenseChart } from "@/components/ExpenseChart";
 import { QuickStats } from "@/components/QuickStats";
 import { Button } from "@/components/ui/button";
@@ -181,21 +181,9 @@ const Index = () => {
           </section>
         )}
 
-        {/* Expense List */}
+        {/* Expense Instances */}
         <section>
-          <ExpenseList
-            expenses={expenseInstances.map(inst => ({
-              ...inst.original_expense,
-              id: inst.id,
-              title: inst.title,
-              amount: inst.amount,
-              is_paid: inst.is_paid,
-              due_date: inst.due_date
-            }))}
-            onTogglePaid={handleTogglePaid}
-            onDeleteExpense={handleDeleteExpense}
-            onMonthChange={handleMonthChange}
-          />
+          <ExpenseInstances />
         </section>
 
         {/* Empty State */}
