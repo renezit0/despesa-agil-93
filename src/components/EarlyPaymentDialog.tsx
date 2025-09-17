@@ -101,6 +101,16 @@ export function EarlyPaymentDialog({
   const isCustomDiscount = hasCustomAmount && customAmountValue < calculatedAmount;
   const discountFromCustomAmount = isCustomDiscount ? calculatedAmount - customAmountValue : 0;
   
+  // FORÇAR LOG SEMPRE PARA DEBUG
+  console.log('🔍 VALORES DEBUG:', {
+    customAmount,
+    customAmountValue,
+    calculatedAmount,
+    isCustomDiscount,
+    discountFromCustomAmount,
+    hasCustomAmount
+  });
+  
   // O valor final é sempre o valor que você digitou (ou o calculado se não digitou nada)
   const finalAmount = hasCustomAmount ? customAmountValue : calculatedAmount;
 
