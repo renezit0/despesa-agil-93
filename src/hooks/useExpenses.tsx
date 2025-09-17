@@ -545,6 +545,24 @@ export const useExpenses = () => {
       paid_at: isFullyPaid ? new Date().toISOString() : undefined,
     });
 
+    // 1. PRIMEIRO: Registrar a transação de pagamento
+    const { error: transactionError } = await supabase
+      .from('payment_transactions')
+      .insert({
+        expense_id: expenseId,
+        user_id: user.id,
+        payment_amount: paymentAmount,
+        discount_amount: customDiscount,
+        payment_type: customDiscount > 0 ? 'partial_payment' : 'early_payment',
+        notes: customDiscount > 0 ? `Pagamento com desconto de R$ ${customDiscount.toFixed(2)}` : 'Pagamento antecipado'
+      });
+
+    if (transactionError) {
+      console.error('Erro ao registrar transação:', transactionError);
+      throw transactionError;
+    }
+
+    // 2. SEGUNDO: Atualizar o expense
     await updateExpense(expenseId, {
       financing_paid_amount: newPaidAmount,
       financing_discount_amount: newDiscountAmount,
@@ -552,7 +570,40 @@ export const useExpenses = () => {
       paid_at: isFullyPaid ? new Date().toISOString() : undefined,
     });
     
-    console.log('✅ UPDATE COMPLETED');
+    console.log('✅ TRANSACTION + UPDATE COMPLETED');
+  };
+
+  // Buscar histórico de transações de pagamento
+  const getPaymentTransactions = async (expenseId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('payment_transactions')
+        .select('*')
+        .eq('expense_id', expenseId)
+        .order('payment_date', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching payment transactions:', error);
+      return [];
+    }
+  };
+
+  // Calcular total pago incluindo transações individuais
+  const calculateTotalPaidWithTransactions = async (expense: Expense) => {
+    if (!expense.is_financing) return expense.financing_paid_amount || 0;
+
+    const transactions = await getPaymentTransactions(expense.id);
+    const totalFromTransactions = transactions.reduce((sum, t) => sum + t.payment_amount + t.discount_amount, 0);
+    
+    // Total de parcelas pagas individualmente
+    const paidInstances = expenseInstances.filter(
+      inst => inst.expense_id === expense.id && inst.instance_type === 'financing' && inst.is_paid
+    );
+    const paidFromInstances = paidInstances.reduce((sum, inst) => sum + inst.amount, 0);
+
+    return totalFromTransactions + paidFromInstances;
   };
 
   // Auto-generate instances when expenses change or month is selected
@@ -581,5 +632,7 @@ export const useExpenses = () => {
     generateAllFinancingInstances,
     toggleInstancePaid,
     updateFinancingPaidMonths,
+    getPaymentTransactions,
+    calculateTotalPaidWithTransactions,
   };
 };
