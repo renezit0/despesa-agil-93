@@ -365,11 +365,25 @@ export const useExpenses = () => {
       if (error) throw error;
 
       const paidMonthsCount = paidInstances?.length || 0;
+      
+      console.log(`🔄 Atualizando parcelas pagas para expense ${expenseId}: ${paidMonthsCount}`);
 
-      // Update the expense with the new paid months count
-      await updateExpense(expenseId, {
-        financing_months_paid: paidMonthsCount
-      });
+      // Update the expense with the new paid months count directly
+      const { error: updateError } = await supabase
+        .from('expenses')
+        .update({
+          financing_months_paid: paidMonthsCount
+        })
+        .eq('id', expenseId);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setExpenses(prev => prev.map(expense => 
+        expense.id === expenseId 
+          ? { ...expense, financing_months_paid: paidMonthsCount }
+          : expense
+      ));
 
     } catch (error) {
       console.error('Error updating financing paid months:', error);
@@ -589,6 +603,9 @@ export const useExpenses = () => {
     
     // Atualizar estado local após pagamento
     await fetchExpenses();
+    
+    // Atualizar contagem de parcelas pagas
+    await updateFinancingPaidMonths(expenseId);
   };
 
   // Função para resetar todos os pagamentos de um expense

@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const ManageExpenses = () => {
   const navigate = useNavigate();
-  const { expenses, expenseInstances, updateExpense, deleteExpense, addExpense, resetAllPayments } = useExpenses();
+  const { expenses, expenseInstances, updateExpense, deleteExpense, addExpense, resetAllPayments, updateFinancingPaidMonths } = useExpenses();
   const { toast } = useToast();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -122,6 +122,15 @@ const ManageExpenses = () => {
   };
 
   // Calcular totais pagos para todos os expenses (SIMPLIFICADO)
+  useEffect(() => {
+    // Sincronizar parcelas pagas para todos os expenses de financiamento
+    expenses.forEach(expense => {
+      if (expense.is_financing) {
+        updateFinancingPaidMonths(expense.id);
+      }
+    });
+  }, [expenses, updateFinancingPaidMonths]);
+
   useEffect(() => {
     if (expenses.length === 0) return;
 
