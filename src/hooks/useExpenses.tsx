@@ -444,23 +444,48 @@ export const useExpenses = () => {
     const discountAmount = expense.financing_discount_amount || 0;
     const monthsTotal = expense.financing_months_total || 0;
     const monthsPaid = expense.financing_months_paid || 0;
+    const discountRate = expense.early_payment_discount_rate || 0;
 
     // Calculate remaining amount after current payments and discounts
     const remainingAmount = totalAmount - paidAmount - discountAmount;
-    const discountRate = expense.early_payment_discount_rate || 0;
     
-    // If this payment will complete the financing, apply full discount to remaining amount
-    const isFullPayment = paymentAmount >= remainingAmount;
+    // Apply discount proportionally to the payment amount
     let newDiscountAmount = discountAmount;
+    let adjustedPaymentAmount = paymentAmount;
     
-    if (isFullPayment && discountRate > 0) {
-      // Apply discount to the remaining amount
-      const discount = remainingAmount * (discountRate / 100);
-      newDiscountAmount = discountAmount + discount;
+    if (discountRate > 0 && paymentAmount > 0) {
+      // Calculate what percentage of remaining amount is being paid
+      const paymentPercentage = Math.min(paymentAmount / remainingAmount, 1);
+      
+      // Apply discount proportionally
+      const maxDiscount = remainingAmount * (discountRate / 100);
+      const applicableDiscount = maxDiscount * paymentPercentage;
+      
+      // Adjust payment considering the discount
+      if (paymentAmount >= remainingAmount) {
+        // Full payment - apply full discount
+        newDiscountAmount = discountAmount + maxDiscount;
+        adjustedPaymentAmount = remainingAmount - maxDiscount;
+      } else {
+        // Partial payment - apply proportional discount
+        newDiscountAmount = discountAmount + applicableDiscount;
+        // Keep the payment amount as informed by user, but track the discount
+      }
+      
+      console.log('Early Payment Debug:', {
+        paymentAmount,
+        remainingAmount,
+        paymentPercentage,
+        maxDiscount,
+        applicableDiscount,
+        newDiscountAmount,
+        adjustedPaymentAmount
+      });
     }
 
     const newPaidAmount = paidAmount + paymentAmount;
-    const isFullyPaid = newPaidAmount >= (totalAmount - newDiscountAmount);
+    const totalAfterDiscount = totalAmount - newDiscountAmount;
+    const isFullyPaid = newPaidAmount >= totalAfterDiscount;
 
     await updateExpense(expenseId, {
       financing_paid_amount: newPaidAmount,

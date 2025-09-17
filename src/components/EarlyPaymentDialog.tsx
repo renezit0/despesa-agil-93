@@ -87,8 +87,8 @@ export function EarlyPaymentDialog({
       break;
     case "early_discount":
       const discount = discountRate > 0 ? (remainingAmount * discountRate / 100) : 0;
-      calculatedAmount = remainingAmount - discount;
-      description = `Pagamento à vista com ${discountRate}% desconto (economia de R$ ${discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
+      calculatedAmount = remainingAmount;
+      description = `Pagamento do saldo devedor com ${discountRate}% desconto (economia de R$ ${discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
       break;
   }
 
@@ -193,8 +193,8 @@ export function EarlyPaymentDialog({
                   <Label htmlFor="early_discount" className="flex-1">
                     Pagamento Antecipado com Desconto
                     <span className="text-sm text-green-600 block">
-                      R$ {(remainingAmount - (remainingAmount * discountRate / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
-                      ({discountRate}% desconto)
+                      Pagar R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
+                      (com {discountRate}% desconto aplicado automaticamente)
                     </span>
                   </Label>
                 </div>
@@ -253,10 +253,16 @@ export function EarlyPaymentDialog({
                   <span>R$ {finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
                 {paymentType === "early_discount" && discountRate > 0 && (
-                  <div className="flex justify-between text-green-600 text-sm">
-                    <span>Economia:</span>
-                    <span>R$ {(remainingAmount * discountRate / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
+                  <>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Saldo devedor:</span>
+                      <span>R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-green-600 text-sm">
+                      <span>Desconto automático ({discountRate}%):</span>
+                      <span>- R$ {((finalAmount * discountRate) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  </>
                 )}
               </div>
             </CardContent>

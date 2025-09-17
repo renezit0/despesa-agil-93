@@ -15,7 +15,7 @@ import financialHero from "@/assets/financial-hero.jpg";
 const Index = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const { expenseInstances, loading: expensesLoading, updateExpense, deleteExpense, generateExpenseInstances, toggleInstancePaid } = useExpenses();
+  const { expenses, expenseInstances, loading: expensesLoading, updateExpense, deleteExpense, generateExpenseInstances, toggleInstancePaid } = useExpenses();
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -170,14 +170,9 @@ const Index = () => {
         )}
 
         {/* Charts */}
-        {expenseInstances.length > 0 && (
+        {expenses.length > 0 && (
           <section>
-            <ExpenseChart expenses={expenseInstances.map(inst => ({
-              ...inst.original_expense,
-              amount: inst.amount,
-              is_paid: inst.is_paid,
-              due_date: inst.due_date
-            }))} />
+            <ExpenseChart expenses={expenses} />
           </section>
         )}
 
