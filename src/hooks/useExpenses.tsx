@@ -584,62 +584,10 @@ export const useExpenses = () => {
       is_paid: isFullyPaid,
       paid_at: isFullyPaid ? new Date().toISOString() : undefined,
     });
-
-    // 3. TERCEIRO: Marcar instâncias como pagas baseado no valor pago
-    await markInstancesAsPaidByPayment(expenseId, paymentAmount, newPaidAmount);
     
-    console.log('✅ TRANSACTION + UPDATE + INSTANCES COMPLETED');
+    console.log('✅ TRANSACTION + UPDATE COMPLETED');
   };
 
-  // Função para marcar instâncias como pagas baseado no pagamento
-  const markInstancesAsPaidByPayment = async (expenseId: string, paymentAmount: number, totalPaidAmount: number) => {
-    try {
-      const expense = expenses.find(e => e.id === expenseId);
-      if (!expense || !expense.is_financing) return;
-
-      const monthlyAmount = (expense.financing_total_amount || 0) / (expense.financing_months_total || 1);
-      const monthsToPay = Math.floor(totalPaidAmount / monthlyAmount);
-
-      // Buscar instâncias do financiamento
-      const { data: instances, error } = await supabase
-        .from('expense_instances')
-        .select('*')
-        .eq('expense_id', expenseId)
-        .eq('instance_type', 'financing')
-        .order('installment_number');
-
-      if (error) throw error;
-
-      // Marcar as primeiras N instâncias como pagas
-      const instancesToUpdate = instances?.slice(0, monthsToPay) || [];
-      
-      for (const instance of instancesToUpdate) {
-        if (!instance.is_paid) {
-          await supabase
-            .from('expense_instances')
-            .update({ 
-              is_paid: true,
-              paid_at: new Date().toISOString()
-            })
-            .eq('id', instance.id);
-        }
-      }
-
-      // Atualizar estado local
-      setExpenseInstances(prev => 
-        prev.map(inst => {
-          if (inst.expense_id === expenseId && inst.instance_type === 'financing') {
-            const shouldBePaid = instancesToUpdate.some(i => i.id === inst.id);
-            return shouldBePaid ? { ...inst, is_paid: true } : inst;
-          }
-          return inst;
-        })
-      );
-
-    } catch (error) {
-      console.error('Error marking instances as paid:', error);
-    }
-  };
   // Função para resetar todos os pagamentos de um expense
   const resetAllPayments = async (expenseId: string) => {
     try {
@@ -756,6 +704,5 @@ export const useExpenses = () => {
     getPaymentTransactions,
     calculateTotalPaidWithTransactions,
     resetAllPayments,
-    markInstancesAsPaidByPayment,
   };
 };
