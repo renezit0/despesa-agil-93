@@ -54,17 +54,47 @@ export const useProfile = () => {
     if (!user) return;
 
     try {
+      // Limpar campos de data vazios
+      const cleanUpdates = { ...updates };
+      if (cleanUpdates.birth_date === '') {
+        cleanUpdates.birth_date = null;
+      }
+
+      // Usar update ao invés de upsert para evitar duplicação
       const { data, error } = await supabase
         .from('profiles')
-        .upsert({
-          user_id: user.id,
-          ...updates,
+        .update({
+          ...cleanUpdates,
           updated_at: new Date().toISOString(),
         })
+        .eq('user_id', user.id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Se não existe perfil, criar um novo
+        if (error.code === 'PGRST116') {
+          const { data: newData, error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              user_id: user.id,
+              ...cleanUpdates,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          setProfile(newData);
+          toast({
+            title: "Perfil criado",
+            description: "Seu perfil foi criado com sucesso.",
+          });
+          return newData;
+        }
+        throw error;
+      }
 
       setProfile(data);
       toast({

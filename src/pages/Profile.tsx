@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Camera, User, Mail, Calendar, MapPin } from "lucide-react";
+import { ArrowLeft, Camera, User, Mail } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -104,56 +104,56 @@ const Profile = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center space-x-4">
+    <div className="container mx-auto px-4 py-4 sm:py-8 max-w-4xl animate-fade-in">
+      {/* Header - Mobile Optimized */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
+        <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => navigate("/")}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground p-2"
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
+            <ArrowLeft className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Voltar</span>
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Meu Perfil</h1>
-            <p className="text-muted-foreground">Gerencie suas informações pessoais</p>
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold">Meu Perfil</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Gerencie suas informações pessoais</p>
           </div>
         </div>
         
         {!isEditing && (
-          <Button onClick={() => setIsEditing(true)}>
+          <Button onClick={() => setIsEditing(true)} size="sm" className="w-full sm:w-auto">
             Editar Perfil
           </Button>
         )}
       </div>
 
-      <div className="grid gap-8 md:grid-cols-3">
-        {/* Avatar Section */}
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <User className="h-5 w-5 mr-2" />
+      <div className="grid gap-6 sm:gap-8 lg:grid-cols-3">
+        {/* Avatar Section - Mobile Friendly */}
+        <Card className="lg:col-span-1 animate-scale-in">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center text-lg sm:text-xl">
+              <User className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Avatar
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-center space-y-6">
+          <CardContent className="text-center space-y-4 sm:space-y-6 p-4 sm:p-6">
             <div className="relative inline-block">
-              <Avatar className="h-32 w-32 mx-auto">
+              <Avatar className="h-24 w-24 sm:h-32 sm:w-32 mx-auto hover-scale transition-transform duration-200">
                 <AvatarImage 
                   src={profile?.avatar_url} 
                   alt="Avatar do usuário" 
                 />
-                <AvatarFallback className="text-2xl">
+                <AvatarFallback className="text-lg sm:text-2xl">
                   {getInitials()}
                 </AvatarFallback>
               </Avatar>
               
               {isEditing && (
-                <label className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors">
-                  <Camera className="h-4 w-4" />
+                <label className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors shadow-lg">
+                  <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
                   <input
                     type="file"
                     accept="image/*"
@@ -167,7 +167,7 @@ const Profile = () => {
             
             {uploading && (
               <div className="text-sm text-muted-foreground">
-                Fazendo upload...
+                <div className="animate-pulse">Fazendo upload...</div>
               </div>
             )}
             
@@ -177,103 +177,109 @@ const Profile = () => {
           </CardContent>
         </Card>
 
-        {/* Profile Information */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Mail className="h-5 w-5 mr-2" />
+        {/* Profile Information - Mobile Responsive */}
+        <Card className="lg:col-span-2 animate-slide-in-right">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center text-lg sm:text-xl">
+              <Mail className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Informações Pessoais
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             {isEditing ? (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="display_name">Nome de Exibição</Label>
+                    <Label htmlFor="display_name" className="text-sm font-medium">Nome de Exibição</Label>
                     <Input
                       id="display_name"
                       value={formData.display_name}
                       onChange={(e) => setFormData(prev => ({ ...prev, display_name: e.target.value }))}
                       placeholder="Como você quer ser chamado"
+                      className="w-full"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="username">Nome de Usuário</Label>
+                    <Label htmlFor="username" className="text-sm font-medium">Nome de Usuário</Label>
                     <Input
                       id="username"
                       value={formData.username}
                       onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                       placeholder="Seu nome de usuário único"
+                      className="w-full"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="full_name">Nome Completo</Label>
+                  <Label htmlFor="full_name" className="text-sm font-medium">Nome Completo</Label>
                   <Input
                     id="full_name"
                     value={formData.full_name}
                     onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
                     placeholder="Seu nome completo"
+                    className="w-full"
                   />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="cpf">CPF</Label>
+                    <Label htmlFor="cpf" className="text-sm font-medium">CPF</Label>
                     <Input
                       id="cpf"
                       value={formData.cpf}
                       onChange={(e) => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
                       placeholder="000.000.000-00"
                       maxLength={14}
+                      className="w-full"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="birth_date">Data de Nascimento</Label>
+                    <Label htmlFor="birth_date" className="text-sm font-medium">Data de Nascimento</Label>
                     <Input
                       id="birth_date"
                       type="date"
                       value={formData.birth_date}
                       onChange={(e) => setFormData(prev => ({ ...prev, birth_date: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="cep">CEP</Label>
-                    <Input
-                      id="cep"
-                      value={formData.cep}
-                      onChange={(e) => setFormData(prev => ({ ...prev, cep: e.target.value }))}
-                      placeholder="00000-000"
-                      maxLength={9}
+                      className="w-full"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address">Endereço</Label>
+                  <Label htmlFor="cep" className="text-sm font-medium">CEP</Label>
+                  <Input
+                    id="cep"
+                    value={formData.cep}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cep: e.target.value }))}
+                    placeholder="00000-000"
+                    maxLength={9}
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address" className="text-sm font-medium">Endereço</Label>
                   <Textarea
                     id="address"
                     value={formData.address}
                     onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                     placeholder="Rua, número, bairro, cidade, estado"
                     rows={3}
+                    className="w-full resize-none"
                   />
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" disabled={uploading}>
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                  <Button type="submit" disabled={uploading} className="w-full sm:w-auto">
                     Salvar Alterações
                   </Button>
                   <Button 
                     type="button" 
                     variant="outline" 
+                    className="w-full sm:w-auto"
                     onClick={() => {
                       setIsEditing(false);
                       setFormData({
@@ -292,33 +298,33 @@ const Profile = () => {
                 </div>
               </form>
             ) : (
-              <div className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Nome de Exibição</Label>
-                    <p className="mt-1">{profile?.display_name || "Não informado"}</p>
+                    <p className="mt-1 text-sm sm:text-base">{profile?.display_name || "Não informado"}</p>
                   </div>
                   
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Nome de Usuário</Label>
-                    <p className="mt-1">{profile?.username || "Não informado"}</p>
+                    <p className="mt-1 text-sm sm:text-base">{profile?.username || "Não informado"}</p>
                   </div>
                 </div>
 
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Nome Completo</Label>
-                  <p className="mt-1">{profile?.full_name || "Não informado"}</p>
+                  <p className="mt-1 text-sm sm:text-base">{profile?.full_name || "Não informado"}</p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">CPF</Label>
-                    <p className="mt-1">{profile?.cpf || "Não informado"}</p>
+                    <p className="mt-1 text-sm sm:text-base">{profile?.cpf || "Não informado"}</p>
                   </div>
                   
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Data de Nascimento</Label>
-                    <p className="mt-1">
+                    <p className="mt-1 text-sm sm:text-base">
                       {profile?.birth_date 
                         ? format(new Date(profile.birth_date), "dd/MM/yyyy", { locale: ptBR })
                         : "Não informado"
@@ -328,18 +334,18 @@ const Profile = () => {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground">Endereço</Label>
-                  <p className="mt-1">{profile?.address || "Não informado"}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">CEP</Label>
+                  <p className="mt-1 text-sm sm:text-base">{profile?.cep || "Não informado"}</p>
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground">CEP</Label>
-                  <p className="mt-1">{profile?.cep || "Não informado"}</p>
+                  <Label className="text-sm font-medium text-muted-foreground">Endereço</Label>
+                  <p className="mt-1 text-sm sm:text-base">{profile?.address || "Não informado"}</p>
                 </div>
 
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">E-mail</Label>
-                  <p className="mt-1">{user?.email}</p>
+                  <p className="mt-1 text-sm sm:text-base font-mono">{user?.email}</p>
                 </div>
               </div>
             )}

@@ -55,25 +55,9 @@ const ManageExpenses = () => {
     setEditingExpense(null);
   };
 
-  const openEditDialog = (expense: Expense) => {
-    setEditingExpense(expense);
-    setFormData({
-      title: expense.title,
-      description: expense.description || "",
-      amount: expense.amount.toString(),
-      due_date: expense.due_date,
-      is_recurring: expense.is_recurring,
-      recurring_start_date: expense.recurring_start_date || "",
-      is_financing: expense.is_financing,
-      financing_total_amount: expense.financing_total_amount?.toString() || "",
-      financing_months_total: expense.financing_months_total?.toString() || "",
-      early_payment_discount_rate: expense.early_payment_discount_rate?.toString() || "",
-      notes: expense.notes || "",
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleSave = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
       const expenseData = {
         title: formData.title,
@@ -121,7 +105,7 @@ const ManageExpenses = () => {
     return expense.financing_paid_amount || 0;
   };
 
-  // Calcular totais pagos para todos os expenses (SIMPLIFICADO)
+  // Update totals when expenses change
   useEffect(() => {
     // Sincronizar parcelas pagas para todos os expenses de financiamento
     expenses.forEach(expense => {
@@ -132,302 +116,311 @@ const ManageExpenses = () => {
   }, [expenses, updateFinancingPaidMonths]);
 
   useEffect(() => {
-    if (expenses.length === 0) return;
-
-    const totals: Record<string, number> = {};
-    for (const expense of expenses) {
+    const newTotals: Record<string, number> = {};
+    expenses.forEach(expense => {
       if (expense.is_financing) {
-        totals[expense.id] = calculateTotalPaidAmount(expense);
+        newTotals[expense.id] = calculateTotalPaidAmount(expense);
       }
-    }
-    setTotalsPaid(totals);
-  }, [expenses, expenseInstances]); // Adicionei expenseInstances para atualizar quando parcelas mudarem
+    });
+    setTotalsPaid(newTotals);
+  }, [expenses, expenseInstances]);
 
-  const handleDelete = async (expense: Expense) => {
-    if (confirm(`Tem certeza que deseja excluir "${expense.title}"?`)) {
-      await deleteExpense(expense.id);
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense);
+    setFormData({
+      title: expense.title,
+      description: expense.description || "",
+      amount: expense.amount.toString(),
+      due_date: expense.due_date,
+      is_recurring: expense.is_recurring,
+      recurring_start_date: expense.recurring_start_date || "",
+      is_financing: expense.is_financing || false,
+      financing_total_amount: expense.financing_total_amount?.toString() || "",
+      financing_months_total: expense.financing_months_total?.toString() || "",
+      early_payment_discount_rate: expense.early_payment_discount_rate?.toString() || "",
+      notes: expense.notes || "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Tem certeza que deseja excluir este gasto?")) {
+      await deleteExpense(id);
       toast({
-        title: "Gasto removido",
-        description: "O gasto foi excluído com sucesso.",
+        title: "Gasto excluído",
+        description: "O gasto foi removido com sucesso.",
       });
     }
   };
 
+  const handleResetPayments = async (expenseId: string) => {
+    if (confirm("Tem certeza que deseja resetar todos os pagamentos deste financiamento?")) {
+      await resetAllPayments(expenseId);
+    }
+  };
+
+  const calculateRemainingAmount = (expense: Expense) => {
+    if (!expense.is_financing || !expense.financing_total_amount) return 0;
+    
+    const totalPaid = calculateTotalPaidAmount(expense);
+    const discount = expense.financing_discount_amount || 0;
+    
+    return Math.max(0, expense.financing_total_amount - totalPaid - discount);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => navigate("/")}
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Voltar</span>
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold">Gerenciar Gastos</h1>
-                <p className="text-sm text-muted-foreground">
-                  Edite, crie e organize seus gastos
-                </p>
-              </div>
-            </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={resetForm} className="flex items-center space-x-2">
-                  <Plus className="h-4 w-4" />
-                  <span>Novo Gasto</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingExpense ? "Editar Gasto" : "Novo Gasto"}
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="title">Título *</Label>
-                      <Input
-                        id="title"
-                        value={formData.title}
-                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        placeholder="Nome do gasto"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="amount">Valor *</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        step="0.01"
-                        value={formData.amount}
-                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="description">Descrição</Label>
-                    <Input
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Descrição opcional"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="due_date">Data de Vencimento *</Label>
-                    <Input
-                      id="due_date"
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="recurring"
-                        checked={formData.is_recurring}
-                        onCheckedChange={(checked) => setFormData({ ...formData, is_recurring: checked })}
-                      />
-                      <Label htmlFor="recurring">Gasto recorrente</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="financing"
-                        checked={formData.is_financing}
-                        onCheckedChange={(checked) => setFormData({ ...formData, is_financing: checked })}
-                      />
-                      <Label htmlFor="financing">Financiamento</Label>
-                    </div>
-                  </div>
-
-                  {formData.is_recurring && (
-                    <div className="p-4 bg-muted rounded-lg">
-                      <Label htmlFor="recurring_start_date">Data de Início da Recorrência</Label>
-                      <Input
-                        id="recurring_start_date"
-                        type="date"
-                        value={formData.recurring_start_date}
-                        onChange={(e) => setFormData({ ...formData, recurring_start_date: e.target.value })}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        A partir de quando este gasto deve aparecer mensalmente
-                      </p>
-                    </div>
-                  )}
-
-                  {formData.is_financing && (
-                    <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
-                      <div>
-                        <Label htmlFor="financing_total">Valor Total do Financiamento</Label>
-                        <Input
-                          id="financing_total"
-                          type="number"
-                          step="0.01"
-                          value={formData.financing_total_amount}
-                          onChange={(e) => setFormData({ ...formData, financing_total_amount: e.target.value })}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="financing_months">Parcelas (meses)</Label>
-                        <Input
-                          id="financing_months"
-                          type="number"
-                          value={formData.financing_months_total}
-                          onChange={(e) => setFormData({ ...formData, financing_months_total: e.target.value })}
-                          placeholder="12"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="discount_rate">Desconto Antecipação (%)</Label>
-                        <Input
-                          id="discount_rate"
-                          type="number"
-                          step="0.1"
-                          value={formData.early_payment_discount_rate}
-                          onChange={(e) => setFormData({ ...formData, early_payment_discount_rate: e.target.value })}
-                          placeholder="0.0"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <Label htmlFor="notes">Observações</Label>
-                    <Textarea
-                      id="notes"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Observações adicionais..."
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleSave}>
-                      {editingExpense ? "Salvar Alterações" : "Criar Gasto"}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+    <div className="container mx-auto px-4 py-4 sm:py-8 animate-fade-in">
+      {/* Header - Mobile Responsive */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate("/")}
+            className="text-muted-foreground hover:text-foreground p-2"
+          >
+            <ArrowLeft className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Voltar</span>
+          </Button>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">Gerenciar Gastos</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Visualize e edite todos os seus gastos
+            </p>
           </div>
         </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8">
-        <div className="space-y-4">
-          {expenses.map((expense) => (
-            <Card key={expense.id} className="p-6">
-              <div className="flex items-center justify-between">
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={() => { resetForm(); setIsDialogOpen(true); }} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Gasto
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingExpense ? "Editar Gasto" : "Novo Gasto"}
+              </DialogTitle>
+            </DialogHeader>
+            
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <div className="flex items-center space-x-3">
-                    <h3 className="text-lg font-semibold">{expense.title}</h3>
-                    <div className="flex space-x-2">
-                      {expense.is_recurring && (
-                        <Badge variant="secondary">Recorrente</Badge>
-                      )}
+                  <Label htmlFor="title" className="text-sm font-medium">Título *</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    required
+                    className="w-full"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="amount" className="text-sm font-medium">Valor *</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    required
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm font-medium">Descrição</Label>
+                <Input
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="due_date" className="text-sm font-medium">Data de Vencimento *</Label>
+                <Input
+                  id="due_date"
+                  type="date"
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                  required
+                  className="w-full"
+                />
+              </div>
+
+              {/* Financing Options - Mobile Responsive */}
+              <div className="space-y-4 border rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_financing"
+                    checked={formData.is_financing}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_financing: checked })}
+                  />
+                  <Label htmlFor="is_financing" className="text-sm font-medium">É um financiamento?</Label>
+                </div>
+                
+                {formData.is_financing && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="financing_total_amount" className="text-sm font-medium">Valor Total do Financiamento</Label>
+                      <Input
+                        id="financing_total_amount"
+                        type="number"
+                        step="0.01"
+                        value={formData.financing_total_amount}
+                        onChange={(e) => setFormData({ ...formData, financing_total_amount: e.target.value })}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="financing_months_total" className="text-sm font-medium">Total de Parcelas</Label>
+                      <Input
+                        id="financing_months_total"
+                        type="number"
+                        value={formData.financing_months_total}
+                        onChange={(e) => setFormData({ ...formData, financing_months_total: e.target.value })}
+                        className="w-full"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="early_payment_discount_rate" className="text-sm font-medium">Taxa de Desconto (%)</Label>
+                      <Input
+                        id="early_payment_discount_rate"
+                        type="number"
+                        step="0.01"
+                        value={formData.early_payment_discount_rate}
+                        onChange={(e) => setFormData({ ...formData, early_payment_discount_rate: e.target.value })}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes" className="text-sm font-medium">Observações</Label>
+                <Textarea
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={3}
+                  className="w-full resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <Button type="submit" className="w-full sm:w-auto">
+                  {editingExpense ? "Atualizar" : "Criar"} Gasto
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsDialogOpen(false)}
+                  className="w-full sm:w-auto"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Expenses List - Mobile Responsive */}
+      <div className="grid gap-4 sm:gap-6">
+        {expenses.length === 0 ? (
+          <Card className="p-8 sm:p-12 text-center">
+            <div className="text-muted-foreground">
+              <DollarSign className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Nenhum gasto encontrado</h3>
+              <p className="text-sm sm:text-base">Comece criando seu primeiro gasto clicando no botão acima.</p>
+            </div>
+          </Card>
+        ) : (
+          expenses.map((expense) => (
+            <Card key={expense.id} className="p-4 sm:p-6 hover:shadow-lg transition-shadow duration-200 animate-scale-in">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-4 lg:space-y-0">
+                <div className="flex-1 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <h3 className="text-lg sm:text-xl font-semibold">{expense.title}</h3>
+                    <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
+                      <Badge variant={expense.is_paid ? "default" : "secondary"}>
+                        {expense.is_paid ? "Pago" : "Pendente"}
+                      </Badge>
                       {expense.is_financing && (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                          <DollarSign className="h-3 w-3 mr-1" />
-                          Financiamento
-                        </Badge>
+                        <Badge variant="outline">Financiamento</Badge>
                       )}
-                      {expense.is_paid && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">Pago</Badge>
+                      {expense.is_recurring && (
+                        <Badge variant="outline">Recorrente</Badge>
                       )}
                     </div>
                   </div>
-                  <div className="text-sm text-muted-foreground space-y-1">
+                  
+                  <div className="text-sm sm:text-base text-muted-foreground space-y-1">
                     <p><strong>Valor:</strong> R$ {expense.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     <p><strong>Vencimento:</strong> {format(new Date(expense.due_date), "dd/MM/yyyy", { locale: ptBR })}</p>
                     {expense.description && (
                       <p><strong>Descrição:</strong> {expense.description}</p>
                     )}
-                    {expense.is_recurring && expense.recurring_start_date && (
-                      <p><strong>Recorre desde:</strong> {format(new Date(expense.recurring_start_date), "dd/MM/yyyy", { locale: ptBR })}</p>
-                    )}
                     {expense.is_financing && expense.financing_total_amount && (
-                      <div className="bg-blue-50 p-2 rounded text-xs space-y-1">
+                      <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded text-xs sm:text-sm space-y-1 mt-2">
                         <p><strong>Valor Total:</strong> R$ {expense.financing_total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         <p><strong>Parcelas:</strong> {expense.financing_months_paid || 0}/{expense.financing_months_total || 0}</p>
                         <p><strong>Pago:</strong> R$ {(totalsPaid[expense.id] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         {expense.financing_discount_amount > 0 && (
                           <p><strong>Desconto Aplicado:</strong> R$ {expense.financing_discount_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         )}
-                        <p><strong>Saldo Devedor:</strong> R$ {Math.max(0, (expense.financing_total_amount || 0) - (totalsPaid[expense.id] || 0) - (expense.financing_discount_amount || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                        {expense.early_payment_discount_rate > 0 && (
-                          <p><strong>Desconto Antecipação:</strong> {expense.early_payment_discount_rate}%</p>
-                        )}
+                        <p><strong>Valor Restante:</strong> R$ {calculateRemainingAmount(expense).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       </div>
-                    )}
-                    {expense.notes && (
-                      <p><strong>Obs:</strong> {expense.notes}</p>
                     )}
                   </div>
                 </div>
-                <div className="flex space-x-2">
+
+                <div className="flex flex-row lg:flex-col gap-2 lg:ml-4">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => openEditDialog(expense)}
+                    onClick={() => handleEdit(expense)}
+                    className="flex items-center space-x-1 flex-1 lg:flex-none"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="text-xs sm:text-sm">Editar</span>
                   </Button>
+                  
                   {expense.is_financing && (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        if (confirm(`Tem certeza que deseja resetar todos os pagamentos de "${expense.title}"?`)) {
-                          resetAllPayments(expense.id);
-                        }
-                      }}
-                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                      title="Resetar todos os pagamentos"
+                      onClick={() => handleResetPayments(expense.id)}
+                      className="flex items-center space-x-1"
                     >
-                      <RotateCcw className="h-4 w-4" />
+                      <RotateCcw className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <span className="text-xs sm:text-sm hidden sm:inline">Reset</span>
                     </Button>
                   )}
+                  
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     size="sm"
-                    onClick={() => handleDelete(expense)}
-                    className="text-destructive hover:text-destructive-foreground hover:bg-destructive"
+                    onClick={() => handleDelete(expense.id)}
+                    className="flex items-center space-x-1"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="text-xs sm:text-sm hidden sm:inline">Excluir</span>
                   </Button>
                 </div>
               </div>
             </Card>
-          ))}
-          
-          {expenses.length === 0 && (
-            <div className="text-center py-16">
-              <p className="text-muted-foreground mb-4">Nenhum gasto encontrado</p>
-              <Button onClick={() => setIsDialogOpen(true)} className="flex items-center space-x-2">
-                <Plus className="h-4 w-4" />
-                <span>Criar Primeiro Gasto</span>
-              </Button>
-            </div>
-          )}
-        </div>
-      </main>
+          ))
+        )}
+      </div>
     </div>
   );
 };
