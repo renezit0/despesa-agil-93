@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Edit, Trash2, Plus, DollarSign } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Plus, DollarSign, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Expense } from "@/hooks/useExpenses";
@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const ManageExpenses = () => {
   const navigate = useNavigate();
-  const { expenses, expenseInstances, updateExpense, deleteExpense, addExpense } = useExpenses();
+  const { expenses, expenseInstances, updateExpense, deleteExpense, addExpense, resetAllPayments } = useExpenses();
   const { toast } = useToast();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -417,6 +417,21 @@ const ManageExpenses = () => {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
+                  {expense.is_financing && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm(`Tem certeza que deseja resetar todos os pagamentos de "${expense.title}"?`)) {
+                          resetAllPayments(expense.id);
+                        }
+                      }}
+                      className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                      title="Resetar todos os pagamentos"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"

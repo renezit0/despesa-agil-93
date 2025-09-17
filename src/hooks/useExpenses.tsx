@@ -589,6 +589,60 @@ export const useExpenses = () => {
     console.log('✅ TRANSACTION + UPDATE COMPLETED');
   };
 
+  // Função para resetar todos os pagamentos de um expense
+  const resetAllPayments = async (expenseId: string) => {
+    try {
+      // 1. Remover todas as transações de pagamento
+      const { error: deleteTransactionsError } = await supabase
+        .from('payment_transactions')
+        .delete()
+        .eq('expense_id', expenseId);
+
+      if (deleteTransactionsError) throw deleteTransactionsError;
+
+      // 2. Resetar campos do expense
+      const { error: updateExpenseError } = await supabase
+        .from('expenses')
+        .update({
+          financing_paid_amount: 0,
+          financing_discount_amount: 0,
+          financing_months_paid: 0,
+          is_paid: false,
+          paid_at: null
+        })
+        .eq('id', expenseId);
+
+      if (updateExpenseError) throw updateExpenseError;
+
+      // 3. Resetar todas as instances para não pagas
+      const { error: updateInstancesError } = await supabase
+        .from('expense_instances')
+        .update({
+          is_paid: false,
+          paid_at: null
+        })
+        .eq('expense_id', expenseId);
+
+      if (updateInstancesError) throw updateInstancesError;
+
+      // 4. Atualizar estado local
+      await fetchExpenses();
+
+      toast({
+        title: "Pagamentos resetados!",
+        description: "Todos os pagamentos foram removidos com sucesso.",
+      });
+
+    } catch (error) {
+      console.error('Erro ao resetar pagamentos:', error);
+      toast({
+        title: "Erro ao resetar",
+        description: "Não foi possível resetar os pagamentos.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Buscar histórico de transações de pagamento
   const getPaymentTransactions = async (expenseId: string) => {
     try {
@@ -650,5 +704,6 @@ export const useExpenses = () => {
     updateFinancingPaidMonths,
     getPaymentTransactions,
     calculateTotalPaidWithTransactions,
+    resetAllPayments,
   };
 };
