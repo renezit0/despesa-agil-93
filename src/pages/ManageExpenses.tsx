@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useExpenses } from "@/hooks/useExpenses";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ const ManageExpenses = () => {
   const { toast } = useToast();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [totalsPaid, setTotalsPaid] = useState<Record<string, number>>({});
 
   const [formData, setFormData] = useState({
     title: "",
@@ -114,42 +116,63 @@ const ManageExpenses = () => {
   };
 
   // Calculate total paid amount including individual installments
-  const calculateTotalPaidAmount = (expense: Expense) => {
-    console.log('calculateTotalPaidAmount called for expense:', expense.id, 'is_financing:', expense.is_financing);
-    console.log('expenseInstances available:', !!expenseInstances, 'length:', expenseInstances?.length || 0);
-    
+  const calculateTotalPaidAmount = async (expense: Expense) => {
     if (!expense.is_financing) {
       return expense.financing_paid_amount || 0;
     }
 
-    // Safety check for expenseInstances
-    if (!expenseInstances || expenseInstances.length === 0) {
-      console.log('No expense instances available, returning financing_paid_amount:', expense.financing_paid_amount || 0);
+    try {
+      // Buscar todas as transações de pagamento para este expense
+      const { data: transactions, error } = await supabase
+        .from('payment_transactions')
+        .select('payment_amount, discount_amount')
+        .eq('expense_id', expense.id);
+
+      if (error) {
+        console.error('Erro ao buscar transações:', error);
+        return expense.financing_paid_amount || 0;
+      }
+
+      // Calcular total das transações (valor pago + desconto aplicado)
+      const totalFromTransactions = (transactions || []).reduce(
+        (sum, t) => sum + t.payment_amount + t.discount_amount, 0
+      );
+
+      // Parcelas pagas individualmente
+      const paidFromInstances = expenseInstances
+        .filter(inst => 
+          inst.expense_id === expense.id && 
+          inst.instance_type === 'financing' && 
+          inst.is_paid
+        )
+        .reduce((sum, inst) => sum + inst.amount, 0);
+
+      // Total efetivamente pago = transações + parcelas individuais
+      const totalEffectivelyPaid = totalFromTransactions + paidFromInstances;
+
+      return totalEffectivelyPaid;
+    } catch (error) {
+      console.error('Erro no cálculo do total pago:', error);
       return expense.financing_paid_amount || 0;
     }
-
-    // Get paid instances for this financing
-    const paidInstances = expenseInstances.filter(
-      inst => inst.expense_id === expense.id && 
-              inst.instance_type === 'financing' && 
-              inst.is_paid
-    );
-
-    const paidFromInstances = paidInstances.reduce((sum, inst) => sum + inst.amount, 0);
-    const paidFromPayments = expense.financing_paid_amount || 0;
-    const discountsApplied = expense.financing_discount_amount || 0;
-    
-    // Total efetivamente pago = pagamentos antecipados + parcelas + descontos aplicados
-    const totalEffectivelyPaid = paidFromPayments + paidFromInstances + discountsApplied;
-    
-    console.log('Paid calculation:', {
-      paidFromInstances, 
-      paidFromPayments, 
-      discountsApplied, 
-      totalEffectivelyPaid
-    });
-    return totalEffectivelyPaid;
   };
+
+  // Calcular totais pagos para todos os expenses
+  useEffect(() => {
+    const calculateAllTotals = async () => {
+      const totals: Record<string, number> = {};
+      for (const expense of expenses) {
+        if (expense.is_financing) {
+          totals[expense.id] = await calculateTotalPaidAmount(expense);
+        }
+      }
+      setTotalsPaid(totals);
+    };
+
+    if (expenses.length > 0) {
+      calculateAllTotals();
+    }
+  }, [expenses, expenseInstances]);
 
   const handleDelete = async (expense: Expense) => {
     if (confirm(`Tem certeza que deseja excluir "${expense.title}"?`)) {
@@ -374,11 +397,11 @@ const ManageExpenses = () => {
                       <div className="bg-blue-50 p-2 rounded text-xs space-y-1">
                         <p><strong>Valor Total:</strong> R$ {expense.financing_total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         <p><strong>Parcelas:</strong> {expense.financing_months_paid || 0}/{expense.financing_months_total || 0}</p>
-                        <p><strong>Pago:</strong> R$ {calculateTotalPaidAmount(expense).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p><strong>Pago:</strong> R$ {(totalsPaid[expense.id] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         {expense.financing_discount_amount > 0 && (
                           <p><strong>Desconto Aplicado:</strong> R$ {expense.financing_discount_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         )}
-                        <p><strong>Saldo Devedor:</strong> R$ {Math.max(0, (expense.financing_total_amount || 0) - calculateTotalPaidAmount(expense)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p><strong>Saldo Devedor:</strong> R$ {Math.max(0, (expense.financing_total_amount || 0) - (totalsPaid[expense.id] || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         {expense.early_payment_discount_rate > 0 && (
                           <p><strong>Desconto Antecipação:</strong> {expense.early_payment_discount_rate}%</p>
                         )}

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useExpenses, type Expense, type ExpenseInstance } from "@/hooks/useExpenses";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 interface EarlyPaymentDialogProps {
@@ -29,6 +30,7 @@ export function EarlyPaymentDialog({
   const [paymentType, setPaymentType] = useState<"installment" | "remaining" | "early_discount">("installment");
   const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [totalFromTransactions, setTotalFromTransactions] = useState(0);
   const { makeEarlyPayment, toggleInstancePaid } = useExpenses();
 
   // Initialize selected instance
@@ -39,6 +41,25 @@ export function EarlyPaymentDialog({
       setSelectedInstanceId(availableInstances[0].id);
     }
   }, [selectedInstance, availableInstances]);
+
+  // Buscar transações de pagamento para calcular total real
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (!expense?.id) return;
+
+      const { data: transactions, error } = await supabase
+        .from('payment_transactions')
+        .select('payment_amount, discount_amount')
+        .eq('expense_id', expense.id);
+
+      if (!error && transactions) {
+        const total = transactions.reduce((sum, t) => sum + t.payment_amount + t.discount_amount, 0);
+        setTotalFromTransactions(total);
+      }
+    };
+
+    fetchTransactions();
+  }, [expense?.id]);
 
   if (!expense?.is_financing) return null;
 
@@ -57,11 +78,11 @@ export function EarlyPaymentDialog({
     .filter(inst => inst.is_paid)
     .reduce((sum, inst) => sum + inst.amount, 0);
   
-  // Total efetivamente pago = pagamentos antecipados + parcelas pagas individualmente
-  const totalPaidAmount = paidAmount + paidFromInstances;
+  // Total efetivamente pago = transações + parcelas pagas individualmente 
+  const totalPaidAmount = totalFromTransactions + paidFromInstances;
   
-  // Saldo devedor = valor total - total pago - descontos já aplicados
-  const remainingAmount = totalAmount - totalPaidAmount - discountAmount;
+  // Saldo devedor = valor total - total pago (incluindo transações)
+  const remainingAmount = totalAmount - totalPaidAmount;
   const remainingMonths = monthsTotal - monthsPaid;
   
   // Calculado uma vez só, sem flood
