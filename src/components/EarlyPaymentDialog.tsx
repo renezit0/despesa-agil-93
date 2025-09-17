@@ -31,7 +31,7 @@ export function EarlyPaymentDialog({
   const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [totalFromTransactions, setTotalFromTransactions] = useState(0);
-  const { makeEarlyPayment, toggleInstancePaid } = useExpenses();
+  const { makeEarlyPayment, toggleInstancePaid, generateExpenseInstances } = useExpenses();
 
   // Initialize selected instance
   useEffect(() => {
@@ -169,6 +169,19 @@ export function EarlyPaymentDialog({
       // ÚNICA LÓGICA: SEMPRE SÓ FAZER makeEarlyPayment  
       console.log('🚨 FAZENDO PAGAMENTO SIMPLES');
       await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
+      
+      // MARCAR A INSTÂNCIA COMO PAGA PARA A CHECKBOX FICAR MARCADA
+      if (currentInstance && !currentInstance.is_paid) {
+        // Atualizar no banco também para ficar sincronizado
+        await supabase
+          .from('expense_instances')
+          .update({ is_paid: true, paid_at: new Date().toISOString() })
+          .eq('id', currentInstance.id);
+          
+        // Regenerar as instâncias para atualizar a interface
+        await generateExpenseInstances(new Date(currentInstance.instance_date));
+      }
+      
       console.log('✅ PAGAMENTO CONCLUÍDO');
       
       setCustomAmount("");
