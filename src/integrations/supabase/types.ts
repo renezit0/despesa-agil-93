@@ -322,8 +322,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      generate_recurring_expenses_for_month: {
-        Args: { target_month: string }
+      get_expenses_for_month: {
+        Args: { target_month: string; target_user_id: string }
         Returns: {
           amount: number
           approved_at: string

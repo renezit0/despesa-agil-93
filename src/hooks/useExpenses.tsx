@@ -51,8 +51,9 @@ export const useExpenses = () => {
       if (month) {
         // Use the database function to get expenses for a specific month
         const { data, error } = await supabase
-          .rpc('generate_recurring_expenses_for_month', {
-            target_month: month.toISOString().split('T')[0]
+          .rpc('get_expenses_for_month', {
+            target_month: month.toISOString().split('T')[0],
+            target_user_id: user.id
           });
 
         if (error) throw error;
