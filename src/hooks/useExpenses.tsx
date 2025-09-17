@@ -436,6 +436,12 @@ export const useExpenses = () => {
         expense.id === id ? data : expense
       ));
 
+      console.log('Local state updated with data from DB:', {
+        id,
+        updatedData: data,
+        financing_discount_amount: data.financing_discount_amount
+      });
+
       toast({
         title: "Gasto atualizado",
         description: "Gasto foi atualizado com sucesso.",
@@ -519,7 +525,7 @@ export const useExpenses = () => {
     const totalAfterDiscount = totalAmount - newDiscountAmount;
     const isFullyPaid = newPaidAmount >= totalAfterDiscount;
 
-    console.log('=== UPDATING EXPENSE IN DB ===');
+    console.log('=== UPDATING EXPENSE ===');
     console.log('Update payload:', {
       financing_paid_amount: newPaidAmount,
       financing_discount_amount: newDiscountAmount,
@@ -534,7 +540,7 @@ export const useExpenses = () => {
       paid_at: isFullyPaid ? new Date().toISOString() : undefined,
     });
     
-    console.log('=== makeEarlyPayment COMPLETED ===');
+    console.log('=== EXPENSE UPDATED ===');
   };
 
   // Auto-generate instances when expenses change or month is selected

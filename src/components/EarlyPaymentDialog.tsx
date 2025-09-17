@@ -64,15 +64,10 @@ export function EarlyPaymentDialog({
   const remainingAmount = totalAmount - totalPaidAmount - discountAmount;
   const remainingMonths = monthsTotal - monthsPaid;
   
-  // Debug log - REMOVIDO O FLOOD, só executa uma vez
-  console.log('EarlyPaymentDialog - Instâncias carregadas:', {
-    availableInstancesCount: availableInstances.length,
-    paidInstances: availableInstances.filter(inst => inst.is_paid).length,
-    totalAmount,
-    paidAmount,
-    discountAmount,
-    remainingAmount: totalAmount - (paidAmount + paidFromInstances + discountAmount)
-  });
+  // Calculado uma vez só, sem flood
+  if (availableInstances.length === 0) {
+    console.log('Nenhuma instância disponível para o modal');
+  }
   
   // Find selected instance
   const currentInstance = availableInstances.find(inst => inst.id === selectedInstanceId) || selectedInstance;
