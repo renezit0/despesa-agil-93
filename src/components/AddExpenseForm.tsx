@@ -48,6 +48,7 @@ export function AddExpenseForm() {
     category: "",
     dueDate: new Date(),
     isRecurrent: false,
+    recurringStartDate: new Date(),
     endDate: undefined as Date | undefined,
     description: "",
     expenseType: "normal",
@@ -72,6 +73,7 @@ export function AddExpenseForm() {
       category: "",
       dueDate: new Date(),
       isRecurrent: false,
+      recurringStartDate: new Date(),
       endDate: undefined,
       description: "",
       expenseType: "normal",
@@ -121,6 +123,7 @@ export function AddExpenseForm() {
           financing_months_paid: 0,
           is_paid: false,
           is_recurring: formData.isRecurrent,
+          recurring_start_date: formData.isRecurrent ? format(formData.recurringStartDate, "yyyy-MM-dd") : undefined,
         });
       } else {
         // Normal expense - always use addExpense to save to database
@@ -132,6 +135,7 @@ export function AddExpenseForm() {
           is_financing: false,
           is_paid: false,
           is_recurring: formData.isRecurrent,
+          recurring_start_date: formData.isRecurrent ? format(formData.recurringStartDate, "yyyy-MM-dd") : undefined,
           installments: formData.isInstallment ? parseInt(formData.installments) : undefined,
           current_installment: formData.isInstallment ? 1 : undefined,
         });
@@ -308,38 +312,74 @@ export function AddExpenseForm() {
               </div>
 
               {formData.isRecurrent && (
-                <div className="space-y-2 p-4 border rounded-lg bg-muted/50">
-                  <Label>Data de Término (opcional)</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !formData.endDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {formData.endDate ? (
-                          format(formData.endDate, "dd/MM/yyyy", { locale: ptBR })
-                        ) : (
-                          <span>Selecionar data de término</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={formData.endDate}
-                        onSelect={(date) => setFormData({ ...formData, endDate: date })}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <p className="text-sm text-muted-foreground">
-                    Se não definir, o gasto continuará indefinidamente
-                  </p>
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                  <div className="space-y-2">
+                    <Label>Data de Início da Recorrência</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !formData.recurringStartDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.recurringStartDate ? (
+                            format(formData.recurringStartDate, "dd/MM/yyyy", { locale: ptBR })
+                          ) : (
+                            <span>Selecionar data de início</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.recurringStartDate}
+                          onSelect={(date) => date && setFormData({ ...formData, recurringStartDate: date })}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-sm text-muted-foreground">
+                      A partir de quando este gasto deve aparecer mensalmente
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Data de Término (opcional)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !formData.endDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formData.endDate ? (
+                            format(formData.endDate, "dd/MM/yyyy", { locale: ptBR })
+                          ) : (
+                            <span>Selecionar data de término</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.endDate}
+                          onSelect={(date) => setFormData({ ...formData, endDate: date })}
+                          initialFocus
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-sm text-muted-foreground">
+                      Se não definir, o gasto continuará indefinidamente
+                    </p>
+                  </div>
                 </div>
               )}
 

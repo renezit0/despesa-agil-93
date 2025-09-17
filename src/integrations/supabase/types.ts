@@ -100,6 +100,7 @@ export type Database = {
           original_amount: number | null
           paid_at: string | null
           payment_proof_url: string | null
+          recurring_start_date: string | null
           recurring_type: string | null
           shared_with_user_id: string | null
           tags: string[] | null
@@ -132,6 +133,7 @@ export type Database = {
           original_amount?: number | null
           paid_at?: string | null
           payment_proof_url?: string | null
+          recurring_start_date?: string | null
           recurring_type?: string | null
           shared_with_user_id?: string | null
           tags?: string[] | null
@@ -164,6 +166,7 @@ export type Database = {
           original_amount?: number | null
           paid_at?: string | null
           payment_proof_url?: string | null
+          recurring_start_date?: string | null
           recurring_type?: string | null
           shared_with_user_id?: string | null
           tags?: string[] | null

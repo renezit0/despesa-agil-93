@@ -20,6 +20,7 @@ export interface Expense {
   notes?: string;
   original_amount?: number;
   paid_at?: string;
+  recurring_start_date?: string;
   // Financing fields
   is_financing: boolean;
   financing_total_amount?: number;
@@ -63,19 +64,35 @@ export const useExpenses = () => {
         // Filter expenses for the specific month
         const targetMonth = month.getMonth();
         const targetYear = month.getFullYear();
+        const currentDate = new Date(targetYear, targetMonth, 1); // First day of target month
         
         filteredExpenses = (allExpenses || []).filter(expense => {
           const expenseDate = new Date(expense.due_date);
+          
+          // 1. Regular expenses in the target month
           const isInMonth = expenseDate.getMonth() === targetMonth && expenseDate.getFullYear() === targetYear;
           
-          // Include recurring expenses that should appear in this month
-          const isRecurringForMonth = expense.is_recurring && expenseDate <= month;
+          // 2. Recurring expenses that should appear in this month
+          let isRecurringForMonth = false;
+          if (expense.is_recurring) {
+            const startDate = expense.recurring_start_date ? new Date(expense.recurring_start_date) : expenseDate;
+            // Show if the recurring started before or during the target month
+            isRecurringForMonth = startDate <= currentDate;
+          }
           
-          // Include financing expenses with remaining installments
-          const isFinancingForMonth = expense.is_financing && 
-            expense.financing_months_total && 
-            expense.financing_months_paid < expense.financing_months_total &&
-            expenseDate <= month;
+          // 3. Financing expenses - show them every month until fully paid
+          let isFinancingForMonth = false;
+          if (expense.is_financing && expense.financing_total_amount && expense.financing_months_total) {
+            // Calculate if this month should show a financing installment
+            const financingStart = expenseDate;
+            const monthsSinceStart = (targetYear - financingStart.getFullYear()) * 12 + (targetMonth - financingStart.getMonth());
+            
+            // Show if within the financing period and not fully paid
+            const isWithinFinancingPeriod = monthsSinceStart >= 0 && monthsSinceStart < expense.financing_months_total;
+            const isNotFullyPaid = expense.financing_paid_amount < expense.financing_total_amount;
+            
+            isFinancingForMonth = isWithinFinancingPeriod && isNotFullyPaid;
+          }
           
           return isInMonth || isRecurringForMonth || isFinancingForMonth;
         });

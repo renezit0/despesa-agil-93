@@ -28,6 +28,7 @@ const ManageExpenses = () => {
     amount: "",
     due_date: "",
     is_recurring: false,
+    recurring_start_date: "",
     is_financing: false,
     financing_total_amount: "",
     financing_months_total: "",
@@ -42,6 +43,7 @@ const ManageExpenses = () => {
       amount: "",
       due_date: "",
       is_recurring: false,
+      recurring_start_date: "",
       is_financing: false,
       financing_total_amount: "",
       financing_months_total: "",
@@ -59,6 +61,7 @@ const ManageExpenses = () => {
       amount: expense.amount.toString(),
       due_date: expense.due_date,
       is_recurring: expense.is_recurring,
+      recurring_start_date: expense.recurring_start_date || "",
       is_financing: expense.is_financing,
       financing_total_amount: expense.financing_total_amount?.toString() || "",
       financing_months_total: expense.financing_months_total?.toString() || "",
@@ -76,6 +79,7 @@ const ManageExpenses = () => {
         amount: parseFloat(formData.amount),
         due_date: formData.due_date,
         is_recurring: formData.is_recurring,
+        recurring_start_date: formData.is_recurring ? formData.recurring_start_date : null,
         is_financing: formData.is_financing,
         financing_total_amount: formData.is_financing ? parseFloat(formData.financing_total_amount) : null,
         financing_months_total: formData.is_financing ? parseInt(formData.financing_months_total) : null,
@@ -218,6 +222,21 @@ const ManageExpenses = () => {
                     </div>
                   </div>
 
+                  {formData.is_recurring && (
+                    <div className="p-4 bg-muted rounded-lg">
+                      <Label htmlFor="recurring_start_date">Data de Início da Recorrência</Label>
+                      <Input
+                        id="recurring_start_date"
+                        type="date"
+                        value={formData.recurring_start_date}
+                        onChange={(e) => setFormData({ ...formData, recurring_start_date: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        A partir de quando este gasto deve aparecer mensalmente
+                      </p>
+                    </div>
+                  )}
+
                   {formData.is_financing && (
                     <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
                       <div>
@@ -310,11 +329,17 @@ const ManageExpenses = () => {
                     {expense.description && (
                       <p><strong>Descrição:</strong> {expense.description}</p>
                     )}
+                    {expense.is_recurring && expense.recurring_start_date && (
+                      <p><strong>Recorre desde:</strong> {format(new Date(expense.recurring_start_date), "dd/MM/yyyy", { locale: ptBR })}</p>
+                    )}
                     {expense.is_financing && expense.financing_total_amount && (
                       <div className="bg-blue-50 p-2 rounded text-xs space-y-1">
                         <p><strong>Valor Total:</strong> R$ {expense.financing_total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         <p><strong>Parcelas:</strong> {expense.financing_months_paid || 0}/{expense.financing_months_total || 0}</p>
                         <p><strong>Pago:</strong> R$ {expense.financing_paid_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        {expense.early_payment_discount_rate > 0 && (
+                          <p><strong>Desconto Antecipação:</strong> {expense.early_payment_discount_rate}%</p>
+                        )}
                       </div>
                     )}
                     {expense.notes && (
