@@ -322,7 +322,41 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_recurring_expenses_for_month: {
+        Args: { target_month: string }
+        Returns: {
+          amount: number
+          approved_at: string
+          approved_by: string
+          category_id: string
+          created_at: string
+          current_installment: number
+          description: string
+          due_date: string
+          early_payment_discount_rate: number
+          financing_discount_amount: number
+          financing_months_paid: number
+          financing_months_total: number
+          financing_paid_amount: number
+          financing_total_amount: number
+          id: string
+          installments: number
+          is_financing: boolean
+          is_paid: boolean
+          is_recurring: boolean
+          needs_approval: boolean
+          notes: string
+          original_amount: number
+          paid_at: string
+          payment_proof_url: string
+          recurring_type: string
+          shared_with_user_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
