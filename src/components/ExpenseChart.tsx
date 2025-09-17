@@ -29,41 +29,68 @@ export function ExpenseChart({ expenses, expenseInstances = [] }: ExpenseChartPr
   const [chartType, setChartType] = useState<"monthly" | "category" | "trend">("monthly");
   const [period, setPeriod] = useState("6"); // months
 
-  // Simplified data combining expenses and instances
+  // Enhanced data combining expenses and instances correctly
   const allExpenseData = () => {
     const combined = [];
     
-    // Add all base expenses
+    // Para expenses de financiamento, usar as instâncias
     expenses.forEach(expense => {
-      combined.push({
-        id: expense.id,
-        title: expense.title,
-        amount: expense.amount,
-        category_id: expense.category_id,
-        due_date: expense.due_date,
-        is_paid: expense.is_paid,
-        is_financing: expense.is_financing,
-        is_recurring: expense.is_recurring
-      });
-    });
-    
-    // Add expense instances (only if they're different from base expenses)
-    expenseInstances.forEach(instance => {
-      if (instance.instance_type !== 'normal') {
+      if (expense.is_financing && expense.financing_total_amount && expense.financing_months_total) {
+        // Buscar instâncias relacionadas ao financiamento
+        const financingInstances = expenseInstances.filter(
+          instance => instance.expense_id === expense.id && instance.instance_type === 'financing'
+        );
+        
+        // Adicionar cada instância de financiamento
+        financingInstances.forEach(instance => {
+          combined.push({
+            id: instance.id,
+            title: instance.title,
+            amount: instance.amount,
+            category_id: expense.category_id,
+            due_date: instance.due_date,
+            is_paid: instance.is_paid,
+            is_financing: true
+          });
+        });
+        
+        // Se não há instâncias, calcular valores mensais baseados no total
+        if (financingInstances.length === 0) {
+          const monthlyAmount = expense.financing_total_amount / expense.financing_months_total;
+          const paidMonths = expense.financing_months_paid || 0;
+          
+          // Adicionar algumas parcelas para visualização
+          for (let i = 0; i < Math.min(6, expense.financing_months_total); i++) {
+            const monthDate = new Date(expense.due_date);
+            monthDate.setMonth(monthDate.getMonth() + i);
+            
+            combined.push({
+              id: `${expense.id}-calc-${i}`,
+              title: `${expense.title} - Parcela ${i + 1}`,
+              amount: monthlyAmount,
+              category_id: expense.category_id,
+              due_date: monthDate.toISOString().split('T')[0],
+              is_paid: i < paidMonths,
+              is_financing: true
+            });
+          }
+        }
+      } else {
+        // Gastos normais (não financiamento)
         combined.push({
-          id: instance.id,
-          title: instance.title,
-          amount: instance.amount,
-          category_id: instance.category_id,
-          due_date: instance.due_date,
-          is_paid: instance.is_paid,
-          is_financing: instance.instance_type === 'financing',
-          is_recurring: instance.instance_type === 'recurring'
+          id: expense.id,
+          title: expense.title,
+          amount: expense.amount,
+          category_id: expense.category_id,
+          due_date: expense.due_date,
+          is_paid: expense.is_paid,
+          is_financing: false
         });
       }
     });
     
     console.log('Chart data:', combined);
+    console.log('Paid items:', combined.filter(item => item.is_paid));
     return combined;
   };
 
