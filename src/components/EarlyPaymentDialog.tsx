@@ -116,7 +116,17 @@ export function EarlyPaymentDialog({
       'discountFromCustomAmount': discountFromCustomAmount
     });
     
+    console.log('🔍 VALIDAÇÃO:', {
+      finalAmount,
+      'finalAmount > 0': finalAmount > 0,
+      paymentType,
+      'currentInstance exists': !!currentInstance,
+      'vai para installment?': paymentType === "installment" && currentInstance,
+      'vai para early payment?': !(paymentType === "installment" && currentInstance)
+    });
+    
     if (!finalAmount || finalAmount <= 0) {
+      console.log('❌ ERRO: Valor inválido');
       toast({
         title: "Valor inválido",
         description: "Por favor, insira um valor válido para o pagamento.",
@@ -125,12 +135,15 @@ export function EarlyPaymentDialog({
       return;
     }
 
+    console.log('✅ VALOR VÁLIDO, continuando...');
     setIsLoading(true);
     try {
       if (paymentType === "installment" && currentInstance) {
+        console.log('📝 PAGAMENTO DE PARCELA INDIVIDUAL');
         // Mark specific instance as paid
         await toggleInstancePaid(currentInstance);
       } else {
+        console.log('🚨 INDO PARA EARLY PAYMENT!');
         console.log('🚨 CHAMANDO makeEarlyPayment COM DESCONTO:', discountFromCustomAmount);
         
         // Make early payment with custom discount
