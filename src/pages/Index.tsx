@@ -15,7 +15,7 @@ import financialHero from "@/assets/financial-hero.jpg";
 const Index = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const { expenses, loading: expensesLoading, updateExpense, deleteExpense } = useExpenses();
+  const { expenses, loading: expensesLoading, updateExpense, deleteExpense, fetchExpensesForMonth } = useExpenses();
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -33,6 +33,10 @@ const Index = () => {
 
   const handleDeleteExpense = async (id: string) => {
     await deleteExpense(id);
+  };
+
+  const handleMonthChange = async (month: Date) => {
+    await fetchExpensesForMonth(month);
   };
 
   // Calculate summary data
@@ -164,6 +168,7 @@ const Index = () => {
             expenses={expenses}
             onTogglePaid={handleTogglePaid}
             onDeleteExpense={handleDeleteExpense}
+            onMonthChange={handleMonthChange}
           />
         </section>
 

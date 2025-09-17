@@ -43,19 +43,31 @@ export const useExpenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchExpenses = async () => {
+  const fetchExpenses = async (month?: Date) => {
     if (!user) return;
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('expenses')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('due_date', { ascending: false });
+      if (month) {
+        // Use the database function to get expenses for a specific month
+        const { data, error } = await supabase
+          .rpc('generate_recurring_expenses_for_month', {
+            target_month: month.toISOString().split('T')[0]
+          });
 
-      if (error) throw error;
-      setExpenses(data || []);
+        if (error) throw error;
+        setExpenses(data || []);
+      } else {
+        // Regular fetch for all expenses
+        const { data, error } = await supabase
+          .from('expenses')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('due_date', { ascending: false });
+
+        if (error) throw error;
+        setExpenses(data || []);
+      }
     } catch (error) {
       console.error('Error fetching expenses:', error);
       toast({
@@ -214,8 +226,12 @@ export const useExpenses = () => {
     });
   };
 
+  const fetchExpensesForCurrentMonth = async () => {
+    await fetchExpenses(new Date());
+  };
+
   useEffect(() => {
-    fetchExpenses();
+    fetchExpensesForCurrentMonth();
   }, [user]);
 
   return {
@@ -227,5 +243,6 @@ export const useExpenses = () => {
     makeEarlyPayment,
     calculateFinancingDiscount,
     refetchExpenses: fetchExpenses,
+    fetchExpensesForMonth: fetchExpenses,
   };
 };

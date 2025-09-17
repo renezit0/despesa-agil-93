@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, CheckCircle, Clock, Repeat, Trash2, Filter } from "lucide-react";
-import { format, isAfter, isBefore, addDays } from "date-fns";
+import { Calendar, CheckCircle, Clock, Repeat, Trash2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { format, isAfter, isBefore, addDays, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Expense } from "@/hooks/useExpenses";
 import { useToast } from "@/hooks/use-toast";
@@ -14,11 +14,13 @@ interface ExpenseListProps {
   expenses: Expense[];
   onTogglePaid: (id: string) => void;
   onDeleteExpense: (id: string) => void;
+  onMonthChange?: (month: Date) => void;
 }
 
-export function ExpenseList({ expenses, onTogglePaid, onDeleteExpense }: ExpenseListProps) {
+export function ExpenseList({ expenses, onTogglePaid, onDeleteExpense, onMonthChange }: ExpenseListProps) {
   const [filter, setFilter] = useState<"all" | "paid" | "pending" | "overdue">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const { toast } = useToast();
 
   const today = new Date();
@@ -78,6 +80,18 @@ export function ExpenseList({ expenses, onTogglePaid, onDeleteExpense }: Expense
     });
   };
 
+  const handlePreviousMonth = () => {
+    const newMonth = subMonths(selectedMonth, 1);
+    setSelectedMonth(newMonth);
+    onMonthChange?.(newMonth);
+  };
+
+  const handleNextMonth = () => {
+    const newMonth = addMonths(selectedMonth, 1);
+    setSelectedMonth(newMonth);
+    onMonthChange?.(newMonth);
+  };
+
   return (
     <Card className="p-6 animate-slide-up">
       <div className="flex flex-col space-y-4 mb-6">
@@ -88,7 +102,28 @@ export function ExpenseList({ expenses, onTogglePaid, onDeleteExpense }: Expense
               {filteredExpenses.length} gasto(s) encontrado(s)
             </p>
           </div>
-          <Filter className="h-5 w-5 text-muted-foreground" />
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePreviousMonth}
+              className="p-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-sm font-medium min-w-[120px] text-center">
+              {format(selectedMonth, "MMMM yyyy", { locale: ptBR })}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextMonth}
+              className="p-2"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Filter className="h-5 w-5 text-muted-foreground ml-2" />
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
