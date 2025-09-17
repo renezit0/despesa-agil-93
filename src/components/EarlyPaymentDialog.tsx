@@ -30,7 +30,6 @@ export function EarlyPaymentDialog({
   const [paymentType, setPaymentType] = useState<"installment" | "remaining" | "early_discount">("installment");
   const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [totalFromTransactions, setTotalFromTransactions] = useState(0);
   const { makeEarlyPayment, toggleInstancePaid, generateExpenseInstances } = useExpenses();
 
   // Initialize selected instance
