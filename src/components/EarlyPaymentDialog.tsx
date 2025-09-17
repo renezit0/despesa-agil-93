@@ -166,20 +166,10 @@ export function EarlyPaymentDialog({
     console.log('✅ VALOR VÁLIDO, continuando...');
     setIsLoading(true);
     try {
-      // LÓGICA CORRIGIDA: Se tem desconto personalizado, sempre vai para early payment
-      if (paymentType === "installment" && currentInstance && discountFromCustomAmount === 0) {
-        console.log('📝 PAGAMENTO DE PARCELA INDIVIDUAL (SEM DESCONTO)');
-        // Mark specific instance as paid
-        await toggleInstancePaid(currentInstance);
-      } else {
-        console.log('🚨 INDO PARA EARLY PAYMENT!');
-        console.log('🚨 CHAMANDO makeEarlyPayment COM DESCONTO:', discountFromCustomAmount);
-        
-        // Make early payment with custom discount
-        await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
-        
-        console.log('✅ makeEarlyPayment CONCLUÍDO COM SUCESSO');
-      }
+      // ÚNICA LÓGICA: SEMPRE SÓ FAZER makeEarlyPayment  
+      console.log('🚨 FAZENDO PAGAMENTO SIMPLES');
+      await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
+      console.log('✅ PAGAMENTO CONCLUÍDO');
       
       setCustomAmount("");
       onOpenChange(false);

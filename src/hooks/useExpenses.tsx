@@ -661,13 +661,8 @@ export const useExpenses = () => {
 
   // Calcular total pago incluindo transações individuais
   const calculateTotalPaidWithTransactions = async (expense: Expense) => {
-    if (!expense.is_financing) return expense.financing_paid_amount || 0;
-
-    const transactions = await getPaymentTransactions(expense.id);
-    const totalFromTransactions = transactions.reduce((sum, t) => sum + t.payment_amount, 0);
-    
-    // APENAS usar transações - NÃO SOMAR instâncias para evitar duplicação
-    return totalFromTransactions;
+    // USAR APENAS financing_paid_amount do expense - NADA MAIS!
+    return expense.financing_paid_amount || 0;
   };
 
   // Auto-generate instances when expenses change or month is selected
