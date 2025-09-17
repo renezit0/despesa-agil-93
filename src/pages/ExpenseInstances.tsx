@@ -16,7 +16,6 @@ export default function ExpenseInstances() {
   const [selectedFinancing, setSelectedFinancing] = useState(null);
   const [selectedInstance, setSelectedInstance] = useState(null);
   const [financingInstances, setFinancingInstances] = useState([]);
-  const [isChangingMonth, setIsChangingMonth] = useState(false);
   const { 
     expenseInstances, 
     generateExpenseInstances, 
@@ -27,29 +26,18 @@ export default function ExpenseInstances() {
 
   // Generate instances when component mounts or month changes
   useEffect(() => {
-    const loadMonth = async () => {
-      if (isChangingMonth) {
-        await generateExpenseInstances(currentMonth);
-        setIsChangingMonth(false);
-      } else {
-        // Initial load
-        generateExpenseInstances(currentMonth);
-      }
-    };
-    
-    loadMonth();
-  }, [currentMonth, generateExpenseInstances, isChangingMonth]);
+    generateExpenseInstances(currentMonth);
+  }, [currentMonth, generateExpenseInstances]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
-    setIsChangingMonth(true);
     const newMonth = direction === 'prev' 
       ? subMonths(currentMonth, 1) 
       : addMonths(currentMonth, 1);
     setCurrentMonth(newMonth);
   };
 
-  // Filter instances for current month - show previous data while changing month
-  const currentMonthInstances = (loading || isChangingMonth) ? [] : expenseInstances.filter(instance => {
+  // Filter instances for current month
+  const currentMonthInstances = expenseInstances.filter(instance => {
     const instanceDate = new Date(instance.instance_date);
     return instanceDate.getMonth() === currentMonth.getMonth() && 
            instanceDate.getFullYear() === currentMonth.getFullYear();
@@ -60,14 +48,12 @@ export default function ExpenseInstances() {
   const paidAmount = currentMonthInstances.filter(e => e.is_paid).reduce((sum, instance) => sum + instance.amount, 0);
   const pendingAmount = totalAmount - paidAmount;
 
-  if (loading || isChangingMonth) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">
-            {isChangingMonth ? 'Carregando mês...' : 'Carregando gastos...'}
-          </p>
+          <p className="mt-2 text-muted-foreground">Carregando gastos...</p>
         </div>
       </div>
     );
@@ -155,7 +141,7 @@ export default function ExpenseInstances() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {currentMonthInstances.length === 0 ? (
+          {currentMonthInstances.length === 0 && !loading ? (
             <div className="text-center py-8">
               <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">Nenhum gasto neste mês</h3>
