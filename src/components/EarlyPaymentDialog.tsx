@@ -41,31 +41,7 @@ export function EarlyPaymentDialog({
     }
   }, [selectedInstance, availableInstances]);
 
-  // Buscar transações de pagamento para calcular total real
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      if (!expense?.id || !expense.is_financing) return;
-
-      try {
-        const { data: transactions, error } = await supabase
-          .from('payment_transactions')
-          .select('payment_amount, discount_amount')
-          .eq('expense_id', expense.id);
-
-        if (!error && transactions) {
-          const total = transactions.reduce((sum, t) => sum + t.payment_amount + t.discount_amount, 0);
-          setTotalFromTransactions(total);
-        } else {
-          setTotalFromTransactions(0);
-        }
-      } catch (error) {
-        console.error('Erro ao buscar transações:', error);
-        setTotalFromTransactions(0);
-      }
-    };
-
-    fetchTransactions();
-  }, [expense?.id, open]); // Só refaz quando abre o modal ou muda o expense
+  // REMOVIDO: toda a lógica de buscar transações que estava duplicando
 
   if (!expense?.is_financing) return null;
 
@@ -84,10 +60,10 @@ export function EarlyPaymentDialog({
     .filter(inst => inst.is_paid)
     .reduce((sum, inst) => sum + inst.amount, 0);
   
-  // Total efetivamente pago = transações + parcelas pagas individualmente 
-  const totalPaidAmount = totalFromTransactions + paidFromInstances;
+  // USAR APENAS financing_paid_amount - SEM DUPLICAÇÃO
+  const totalPaidAmount = paidAmount;
   
-  // Saldo devedor = valor total - total pago (incluindo transações)
+  // Saldo devedor = valor total - total pago (SEM incluir instâncias para evitar duplicação)
   const remainingAmount = totalAmount - totalPaidAmount;
   const remainingMonths = monthsTotal - monthsPaid;
   
