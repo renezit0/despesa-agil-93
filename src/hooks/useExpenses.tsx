@@ -287,6 +287,11 @@ export const useExpenses = () => {
       if (instance.instance_type === 'normal') {
         // Update the original expense directly
         await updateExpense(instance.expense_id, { is_paid: newPaidStatus });
+      } else if (instance.instance_type === 'financing') {
+        // Para financiamentos, criar transação de pagamento em vez de marcar instância
+        if (newPaidStatus) {
+          await makeEarlyPayment(instance.expense_id, instance.amount, 0);
+        }
       } else {
         // Create or update expense instance
         const instanceData = {
@@ -664,15 +669,10 @@ export const useExpenses = () => {
     if (!expense.is_financing) return expense.financing_paid_amount || 0;
 
     const transactions = await getPaymentTransactions(expense.id);
-    const totalFromTransactions = transactions.reduce((sum, t) => sum + t.payment_amount + t.discount_amount, 0);
+    const totalFromTransactions = transactions.reduce((sum, t) => sum + t.payment_amount, 0);
     
-    // Total de parcelas pagas individualmente
-    const paidInstances = expenseInstances.filter(
-      inst => inst.expense_id === expense.id && inst.instance_type === 'financing' && inst.is_paid
-    );
-    const paidFromInstances = paidInstances.reduce((sum, inst) => sum + inst.amount, 0);
-
-    return totalFromTransactions + paidFromInstances;
+    // APENAS usar transações - NÃO SOMAR instâncias para evitar duplicação
+    return totalFromTransactions;
   };
 
   // Auto-generate instances when expenses change or month is selected
