@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const ManageExpenses = () => {
   const navigate = useNavigate();
-  const { expenses, updateExpense, deleteExpense, addExpense } = useExpenses();
+  const { expenses, expenseInstances, updateExpense, deleteExpense, addExpense } = useExpenses();
   const { toast } = useToast();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -111,6 +111,25 @@ const ManageExpenses = () => {
         variant: "destructive",
       });
     }
+  };
+
+  // Calculate total paid amount including individual installments
+  const calculateTotalPaidAmount = (expense: Expense) => {
+    if (!expense.is_financing) {
+      return expense.financing_paid_amount || 0;
+    }
+
+    // Get paid instances for this financing
+    const paidInstances = expenseInstances.filter(
+      inst => inst.expense_id === expense.id && 
+              inst.instance_type === 'financing' && 
+              inst.is_paid
+    );
+
+    const paidFromInstances = paidInstances.reduce((sum, inst) => sum + inst.amount, 0);
+    const paidFromPayments = expense.financing_paid_amount || 0;
+    
+    return paidFromInstances + paidFromPayments;
   };
 
   const handleDelete = async (expense: Expense) => {
@@ -336,7 +355,7 @@ const ManageExpenses = () => {
                       <div className="bg-blue-50 p-2 rounded text-xs space-y-1">
                         <p><strong>Valor Total:</strong> R$ {expense.financing_total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         <p><strong>Parcelas:</strong> {expense.financing_months_paid || 0}/{expense.financing_months_total || 0}</p>
-                        <p><strong>Pago:</strong> R$ {expense.financing_paid_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p><strong>Pago:</strong> R$ {calculateTotalPaidAmount(expense).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         {expense.early_payment_discount_rate > 0 && (
                           <p><strong>Desconto Antecipação:</strong> {expense.early_payment_discount_rate}%</p>
                         )}
