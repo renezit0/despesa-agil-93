@@ -105,6 +105,7 @@ export function EarlyPaymentDialog({
   const finalAmount = hasCustomAmount ? customAmountValue : calculatedAmount;
 
   const handlePayment = async () => {
+    console.log('🎯 BOTÃO CLICADO! handlePayment executando...');
     // DEBUG FINAL - só executa quando clica no botão
     console.log('🚀 PAYMENT START - RAW VALUES:', {
       'customAmount (raw)': customAmount,
