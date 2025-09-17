@@ -46,11 +46,27 @@ export function EarlyPaymentDialog({
   const paidAmount = expense.financing_paid_amount || 0;
   const discountAmount = expense.financing_discount_amount || 0;
   const monthsTotal = expense.financing_months_total || 0;
-  const monthsPaid = expense.financing_months_paid || 0;
+  
+  // Calculate paid months from actual instances, not from the expense field
+  const paidInstancesCount = availableInstances.filter(inst => inst.is_paid).length;
+  const monthsPaid = paidInstancesCount;
   const discountRate = expense.early_payment_discount_rate || 0;
 
   const remainingAmount = totalAmount - paidAmount - discountAmount;
   const remainingMonths = monthsTotal - monthsPaid;
+  
+  // Debug log
+  console.log('EarlyPaymentDialog Debug:', {
+    totalAmount,
+    paidAmount,
+    discountAmount,
+    monthsTotal,
+    monthsPaid,
+    paidInstancesCount,
+    remainingMonths,
+    availableInstancesCount: availableInstances.length,
+    paidInstances: availableInstances.filter(inst => inst.is_paid).length
+  });
   
   // Find selected instance
   const currentInstance = availableInstances.find(inst => inst.id === selectedInstanceId) || selectedInstance;
@@ -207,7 +223,7 @@ export function EarlyPaymentDialog({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Parcelas Restantes:</span>
-                <span>{remainingMonths} de {monthsTotal}</span>
+                <span>{remainingMonths} de {monthsTotal} (Pagas: {paidInstancesCount})</span>
               </div>
             </CardContent>
           </Card>

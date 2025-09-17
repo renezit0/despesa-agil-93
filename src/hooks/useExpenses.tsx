@@ -260,6 +260,11 @@ export const useExpenses = () => {
           
           if (error) throw error;
         }
+
+        // If it's a financing instance, update the original expense's paid months count
+        if (instance.instance_type === 'financing') {
+          await updateFinancingPaidMonths(instance.expense_id);
+        }
       }
 
       // Update local state immediately
@@ -286,6 +291,30 @@ export const useExpenses = () => {
         description: "Não foi possível atualizar o status do pagamento.",
         variant: "destructive",
       });
+    }
+  };
+
+  const updateFinancingPaidMonths = async (expenseId: string) => {
+    try {
+      // Count paid financing instances for this expense
+      const { data: paidInstances, error } = await supabase
+        .from('expense_instances')
+        .select('id')
+        .eq('expense_id', expenseId)
+        .eq('instance_type', 'financing')
+        .eq('is_paid', true);
+
+      if (error) throw error;
+
+      const paidMonthsCount = paidInstances?.length || 0;
+
+      // Update the expense with the new paid months count
+      await updateExpense(expenseId, {
+        financing_months_paid: paidMonthsCount
+      });
+
+    } catch (error) {
+      console.error('Error updating financing paid months:', error);
     }
   };
 
@@ -465,5 +494,6 @@ export const useExpenses = () => {
     fetchExpensesForMonth,
     generateExpenseInstances,
     toggleInstancePaid,
+    updateFinancingPaidMonths,
   };
 };
