@@ -1,23 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useExpenses, type Expense } from "@/hooks/useExpenses";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useExpenses, type Expense, type ExpenseInstance } from "@/hooks/useExpenses";
 import { toast } from "@/hooks/use-toast";
 
 interface EarlyPaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   expense: Expense | null;
+  selectedInstance?: ExpenseInstance | null;
+  availableInstances?: ExpenseInstance[];
 }
 
-export function EarlyPaymentDialog({ open, onOpenChange, expense }: EarlyPaymentDialogProps) {
-  const [paymentAmount, setPaymentAmount] = useState("");
+export function EarlyPaymentDialog({ 
+  open, 
+  onOpenChange, 
+  expense, 
+  selectedInstance, 
+  availableInstances = [] 
+}: EarlyPaymentDialogProps) {
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string>("");
+  const [paymentType, setPaymentType] = useState<"installment" | "remaining" | "early_discount">("installment");
+  const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { makeEarlyPayment, calculateFinancingDiscount } = useExpenses();
+  const { makeEarlyPayment, toggleInstancePaid } = useExpenses();
+
+  // Initialize selected instance
+  useEffect(() => {
+    if (selectedInstance) {
+      setSelectedInstanceId(selectedInstance.id);
+    } else if (availableInstances.length > 0) {
+      setSelectedInstanceId(availableInstances[0].id);
+    }
+  }, [selectedInstance, availableInstances]);
 
   if (!expense?.is_financing) return null;
 
@@ -31,13 +52,34 @@ export function EarlyPaymentDialog({ open, onOpenChange, expense }: EarlyPayment
   const remainingAmount = totalAmount - paidAmount - discountAmount;
   const remainingMonths = monthsTotal - monthsPaid;
   
-  // Calculate discount for current payment
-  const currentPayment = parseFloat(paymentAmount) || 0;
-  const discount = discountRate > 0 ? (remainingAmount * discountRate / 100) : 0;
-  const finalPaymentNeeded = remainingAmount - discount;
+  // Find selected instance
+  const currentInstance = availableInstances.find(inst => inst.id === selectedInstanceId) || selectedInstance;
+  const installmentAmount = currentInstance?.amount || (totalAmount / monthsTotal);
+  
+  // Calculate amounts based on payment type
+  let calculatedAmount = 0;
+  let description = "";
+  
+  switch (paymentType) {
+    case "installment":
+      calculatedAmount = installmentAmount;
+      description = "Pagamento da parcela selecionada";
+      break;
+    case "remaining":
+      calculatedAmount = remainingAmount;
+      description = "Pagamento do saldo devedor sem desconto";
+      break;
+    case "early_discount":
+      const discount = discountRate > 0 ? (remainingAmount * discountRate / 100) : 0;
+      calculatedAmount = remainingAmount - discount;
+      description = `Pagamento à vista com ${discountRate}% desconto (economia de R$ ${discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
+      break;
+  }
+
+  const finalAmount = customAmount ? parseFloat(customAmount) : calculatedAmount;
 
   const handlePayment = async () => {
-    if (!currentPayment || currentPayment <= 0) {
+    if (!finalAmount || finalAmount <= 0) {
       toast({
         title: "Valor inválido",
         description: "Por favor, insira um valor válido para o pagamento.",
@@ -46,24 +88,22 @@ export function EarlyPaymentDialog({ open, onOpenChange, expense }: EarlyPayment
       return;
     }
 
-    if (currentPayment > finalPaymentNeeded) {
-      toast({
-        title: "Valor muito alto",
-        description: `O valor máximo para quitar é R$ ${finalPaymentNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
     try {
-      await makeEarlyPayment(expense.id, currentPayment);
-      setPaymentAmount("");
+      if (paymentType === "installment" && currentInstance) {
+        // Mark specific instance as paid
+        await toggleInstancePaid(currentInstance);
+      } else {
+        // Make early payment (remaining or with discount)
+        await makeEarlyPayment(expense.id, finalAmount);
+      }
+      
+      setCustomAmount("");
       onOpenChange(false);
       
       toast({
         title: "Pagamento realizado!",
-        description: `Pagamento de R$ ${currentPayment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} processado com sucesso.`,
+        description: `Pagamento de R$ ${finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} processado com sucesso.`,
       });
     } catch (error) {
       toast({
@@ -78,15 +118,74 @@ export function EarlyPaymentDialog({ open, onOpenChange, expense }: EarlyPayment
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Pagamento Antecipado</DialogTitle>
+          <DialogTitle>Pagamento - {expense.title}</DialogTitle>
           <DialogDescription>
-            {expense.title}
+            Selecione o tipo de pagamento e a parcela desejada
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Seleção da Parcela */}
+          {availableInstances.length > 0 && (
+            <div className="space-y-2">
+              <Label>Selecionar Parcela</Label>
+              <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma parcela" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableInstances.map((instance) => (
+                    <SelectItem key={instance.id} value={instance.id}>
+                      {instance.title} - R$ {instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {instance.is_paid && " (Paga)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Tipo de Pagamento */}
+          <div className="space-y-3">
+            <Label>Tipo de Pagamento</Label>
+            <RadioGroup value={paymentType} onValueChange={(value: any) => setPaymentType(value)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="installment" id="installment" />
+                <Label htmlFor="installment" className="flex-1">
+                  Pagar Parcela Selecionada
+                  <span className="text-sm text-muted-foreground block">
+                    R$ {installmentAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="remaining" id="remaining" />
+                <Label htmlFor="remaining" className="flex-1">
+                  Quitar Saldo Devedor
+                  <span className="text-sm text-muted-foreground block">
+                    R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (sem desconto)
+                  </span>
+                </Label>
+              </div>
+              
+              {discountRate > 0 && (
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="early_discount" id="early_discount" />
+                  <Label htmlFor="early_discount" className="flex-1">
+                    Pagamento Antecipado com Desconto
+                    <span className="text-sm text-green-600 block">
+                      R$ {(remainingAmount - (remainingAmount * discountRate / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
+                      ({discountRate}% desconto)
+                    </span>
+                  </Label>
+                </div>
+              )}
+            </RadioGroup>
+          </div>
+
           {/* Status atual */}
           <Card>
             <CardContent className="pt-4 space-y-2">
@@ -113,65 +212,55 @@ export function EarlyPaymentDialog({ open, onOpenChange, expense }: EarlyPayment
             </CardContent>
           </Card>
 
-          {/* Calculadora de desconto */}
-          {discountRate > 0 && (
-            <Card className="bg-green-50 border-green-200">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
-                    {discountRate}% desconto
-                  </Badge>
-                  <span className="text-sm font-medium">Pagamento à vista</span>
-                </div>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span>Saldo devedor:</span>
-                    <span>R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="flex justify-between text-green-600">
-                    <span>Desconto ({discountRate}%):</span>
-                    <span>- R$ {discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="border-t pt-1 flex justify-between font-medium">
-                    <span>Valor para quitar:</span>
-                    <span>R$ {finalPaymentNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Input de pagamento */}
+          {/* Valor customizado */}
           <div className="space-y-2">
-            <Label htmlFor="payment">Valor do Pagamento</Label>
+            <Label htmlFor="custom-amount">Valor Personalizado (opcional)</Label>
             <Input
-              id="payment"
+              id="custom-amount"
               type="number"
               step="0.01"
-              placeholder="0,00"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
+              placeholder={`${calculatedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+              value={customAmount}
+              onChange={(e) => setCustomAmount(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Você pode pagar qualquer valor entre R$ 0,01 e R$ {finalPaymentNeeded.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {description}
             </p>
           </div>
+
+          {/* Resumo do pagamento */}
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="pt-4">
+              <div className="space-y-2">
+                <div className="flex justify-between font-medium">
+                  <span>Valor a Pagar:</span>
+                  <span>R$ {finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+                {paymentType === "early_discount" && discountRate > 0 && (
+                  <div className="flex justify-between text-green-600 text-sm">
+                    <span>Economia:</span>
+                    <span>R$ {(remainingAmount * discountRate / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Botões */}
           <div className="flex gap-2">
             <Button
-              onClick={() => setPaymentAmount(finalPaymentNeeded.toString())}
-              variant="outline"
+              onClick={handlePayment}
+              disabled={isLoading || !finalAmount || finalAmount <= 0}
               className="flex-1"
             >
-              Quitar Total
+              {isLoading ? "Processando..." : "Confirmar Pagamento"}
             </Button>
             <Button
-              onClick={handlePayment}
-              disabled={isLoading || !currentPayment || currentPayment <= 0}
+              variant="outline"
+              onClick={() => onOpenChange(false)}
               className="flex-1"
             >
-              {isLoading ? "Processando..." : "Pagar"}
+              Cancelar
             </Button>
           </div>
         </div>

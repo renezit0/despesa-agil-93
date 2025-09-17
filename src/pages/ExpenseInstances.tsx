@@ -14,6 +14,8 @@ export default function ExpenseInstances() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [earlyPaymentDialogOpen, setEarlyPaymentDialogOpen] = useState(false);
   const [selectedFinancing, setSelectedFinancing] = useState(null);
+  const [selectedInstance, setSelectedInstance] = useState(null);
+  const [financingInstances, setFinancingInstances] = useState([]);
   const { 
     expenseInstances, 
     generateExpenseInstances, 
@@ -190,7 +192,14 @@ export default function ExpenseInstances() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
+                            // Get all instances for this financing
+                            const financingInstances = currentMonthInstances.filter(
+                              inst => inst.original_expense.id === instance.original_expense.id && 
+                                      inst.instance_type === 'financing'
+                            );
                             setSelectedFinancing(instance.original_expense);
+                            setFinancingInstances(financingInstances);
+                            setSelectedInstance(instance);
                             setEarlyPaymentDialogOpen(true);
                           }}
                           className="h-8 px-2"
@@ -217,6 +226,8 @@ export default function ExpenseInstances() {
         open={earlyPaymentDialogOpen}
         onOpenChange={setEarlyPaymentDialogOpen}
         expense={selectedFinancing}
+        selectedInstance={selectedInstance}
+        availableInstances={financingInstances}
       />
     </div>
   );

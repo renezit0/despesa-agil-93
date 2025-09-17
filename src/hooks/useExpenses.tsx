@@ -262,7 +262,7 @@ export const useExpenses = () => {
         }
       }
 
-      // Update local state
+      // Update local state immediately
       setExpenseInstances(prev => 
         prev.map(inst => 
           inst.id === instance.id 
@@ -270,6 +270,9 @@ export const useExpenses = () => {
             : inst
         )
       );
+
+      // Refresh instances to get updated data
+      await generateExpenseInstances(new Date(instance.instance_date));
 
       toast({
         title: newPaidStatus ? "Marcado como pago" : "Marcado como não pago",
