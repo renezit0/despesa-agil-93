@@ -115,61 +115,24 @@ const ManageExpenses = () => {
     }
   };
 
-  // Calculate total paid amount including individual installments
-  const calculateTotalPaidAmount = async (expense: Expense) => {
-    if (!expense.is_financing) {
-      return expense.financing_paid_amount || 0;
-    }
-
-    try {
-      // Buscar todas as transações de pagamento para este expense
-      const { data: transactions, error } = await supabase
-        .from('payment_transactions')
-        .select('payment_amount, discount_amount')
-        .eq('expense_id', expense.id);
-
-      if (error) {
-        console.error('Erro ao buscar transações:', error);
-        return expense.financing_paid_amount || 0;
-      }
-
-      // Calcular total das transações (valor pago + desconto aplicado)
-      const totalFromTransactions = (transactions || []).reduce(
-        (sum, t) => sum + t.payment_amount + t.discount_amount, 0
-      );
-
-      // Parcelas pagas individualmente - buscar apenas as necessárias
-      const financingInstances = expenseInstances.filter(
-        inst => inst.expense_id === expense.id && inst.instance_type === 'financing' && inst.is_paid
-      );
-      const paidFromInstances = financingInstances.reduce((sum, inst) => sum + inst.amount, 0);
-
-      // Total efetivamente pago = transações + parcelas individuais
-      const totalEffectivelyPaid = totalFromTransactions + paidFromInstances;
-
-      return totalEffectivelyPaid;
-    } catch (error) {
-      console.error('Erro no cálculo do total pago:', error);
-      return expense.financing_paid_amount || 0;
-    }
+  // Calculate total paid amount - USAR APENAS financing_paid_amount
+  const calculateTotalPaidAmount = (expense: Expense) => {
+    // SIMPLIFIQUEI: usar apenas financing_paid_amount para evitar duplicação
+    return expense.financing_paid_amount || 0;
   };
 
-  // Calcular totais pagos para todos os expenses (com debounce)
+  // Calcular totais pagos para todos os expenses (SIMPLIFICADO)
   useEffect(() => {
-    const timeoutId = setTimeout(async () => {
-      if (expenses.length === 0) return;
+    if (expenses.length === 0) return;
 
-      const totals: Record<string, number> = {};
-      for (const expense of expenses) {
-        if (expense.is_financing) {
-          totals[expense.id] = await calculateTotalPaidAmount(expense);
-        }
+    const totals: Record<string, number> = {};
+    for (const expense of expenses) {
+      if (expense.is_financing) {
+        totals[expense.id] = calculateTotalPaidAmount(expense);
       }
-      setTotalsPaid(totals);
-    }, 300); // 300ms de debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [expenses]);
+    }
+    setTotalsPaid(totals);
+  }, [expenses, expenseInstances]); // Adicionei expenseInstances para atualizar quando parcelas mudarem
 
   const handleDelete = async (expense: Expense) => {
     if (confirm(`Tem certeza que deseja excluir "${expense.title}"?`)) {
@@ -393,12 +356,20 @@ const ManageExpenses = () => {
                     {expense.is_financing && expense.financing_total_amount && (
                       <div className="bg-blue-50 p-2 rounded text-xs space-y-1">
                         <p><strong>Valor Total:</strong> R$ {expense.financing_total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                        <p><strong>Parcelas:</strong> {expense.financing_months_paid || 0}/{expense.financing_months_total || 0}</p>
+                        <p><strong>Parcelas:</strong> {(() => {
+                          // Calcular parcelas pagas baseado nas instâncias
+                          const paidInstances = expenseInstances.filter(
+                            inst => inst.expense_id === expense.id && 
+                                   inst.instance_type === 'financing' && 
+                                   inst.is_paid
+                          ).length;
+                          return `${paidInstances}/${expense.financing_months_total || 0}`;
+                        })()}</p>
                         <p><strong>Pago:</strong> R$ {(totalsPaid[expense.id] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         {expense.financing_discount_amount > 0 && (
                           <p><strong>Desconto Aplicado:</strong> R$ {expense.financing_discount_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         )}
-                        <p><strong>Saldo Devedor:</strong> R$ {Math.max(0, (expense.financing_total_amount || 0) - (totalsPaid[expense.id] || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p><strong>Saldo Devedor:</strong> R$ {Math.max(0, (expense.financing_total_amount || 0) - (totalsPaid[expense.id] || 0) - (expense.financing_discount_amount || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         {expense.early_payment_discount_rate > 0 && (
                           <p><strong>Desconto Antecipação:</strong> {expense.early_payment_discount_rate}%</p>
                         )}
