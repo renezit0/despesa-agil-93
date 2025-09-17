@@ -534,6 +534,7 @@ export const useExpenses = () => {
       console.log('Early Payment Debug:', {
         paymentAmount,
         remainingAmount,
+        additionalDiscount,
         paymentPercentage,
         maxDiscount,
         applicableDiscount,

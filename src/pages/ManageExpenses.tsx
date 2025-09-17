@@ -137,9 +137,18 @@ const ManageExpenses = () => {
 
     const paidFromInstances = paidInstances.reduce((sum, inst) => sum + inst.amount, 0);
     const paidFromPayments = expense.financing_paid_amount || 0;
+    const discountsApplied = expense.financing_discount_amount || 0;
     
-    console.log('Paid from instances:', paidFromInstances, 'Paid from payments:', paidFromPayments);
-    return paidFromInstances + paidFromPayments;
+    // Total efetivamente pago = pagamentos antecipados + parcelas + descontos aplicados
+    const totalEffectivelyPaid = paidFromPayments + paidFromInstances + discountsApplied;
+    
+    console.log('Paid calculation:', {
+      paidFromInstances, 
+      paidFromPayments, 
+      discountsApplied, 
+      totalEffectivelyPaid
+    });
+    return totalEffectivelyPaid;
   };
 
   const handleDelete = async (expense: Expense) => {
@@ -366,6 +375,10 @@ const ManageExpenses = () => {
                         <p><strong>Valor Total:</strong> R$ {expense.financing_total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         <p><strong>Parcelas:</strong> {expense.financing_months_paid || 0}/{expense.financing_months_total || 0}</p>
                         <p><strong>Pago:</strong> R$ {calculateTotalPaidAmount(expense).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        {expense.financing_discount_amount > 0 && (
+                          <p><strong>Desconto Aplicado:</strong> R$ {expense.financing_discount_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        )}
+                        <p><strong>Saldo Devedor:</strong> R$ {Math.max(0, (expense.financing_total_amount || 0) - calculateTotalPaidAmount(expense)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         {expense.early_payment_discount_rate > 0 && (
                           <p><strong>Desconto Antecipação:</strong> {expense.early_payment_discount_rate}%</p>
                         )}

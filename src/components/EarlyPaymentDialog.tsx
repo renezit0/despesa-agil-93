@@ -134,9 +134,8 @@ export function EarlyPaymentDialog({
         await toggleInstancePaid(currentInstance);
       } else {
         // Make early payment (remaining or with discount)
-        // Se tem desconto personalizado, aplicar junto com o desconto da taxa
-        const totalDiscountAmount = discountFromCustomAmount + (paymentType === "early_discount" && discountRate > 0 ? (calculatedAmount * discountRate / 100) : 0);
-        await makeEarlyPayment(expense.id, finalAmount, totalDiscountAmount);
+        // Aplicar desconto personalizado se houver
+        await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
       }
       
       setCustomAmount("");
