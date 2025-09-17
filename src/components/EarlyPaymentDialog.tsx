@@ -118,6 +118,14 @@ export function EarlyPaymentDialog({
   const discountFromCustomAmount = isCustomDiscount ? calculatedAmount - parseFloat(customAmount) : 0;
 
   const handlePayment = async () => {
+    console.log('=== PAYMENT DEBUG START ===');
+    console.log('finalAmount:', finalAmount);
+    console.log('calculatedAmount:', calculatedAmount);
+    console.log('customAmount:', customAmount);
+    console.log('isCustomDiscount:', isCustomDiscount);
+    console.log('discountFromCustomAmount:', discountFromCustomAmount);
+    console.log('paymentType:', paymentType);
+    
     if (!finalAmount || finalAmount <= 0) {
       toast({
         title: "Valor inválido",
@@ -130,9 +138,16 @@ export function EarlyPaymentDialog({
     setIsLoading(true);
     try {
       if (paymentType === "installment" && currentInstance) {
+        console.log('=== INSTALLMENT PAYMENT ===');
         // Mark specific instance as paid
         await toggleInstancePaid(currentInstance);
       } else {
+        console.log('=== EARLY PAYMENT ===');
+        console.log('Calling makeEarlyPayment with:');
+        console.log('- expenseId:', expense.id);
+        console.log('- finalAmount:', finalAmount);
+        console.log('- discountFromCustomAmount:', discountFromCustomAmount);
+        
         // Make early payment (remaining or with discount)
         // Aplicar desconto personalizado se houver
         await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);

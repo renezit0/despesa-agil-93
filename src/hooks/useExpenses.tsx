@@ -422,6 +422,9 @@ export const useExpenses = () => {
   };
 
   const updateExpense = async (id: string, updates: Partial<Expense>) => {
+    console.log('=== updateExpense CALLED ===');
+    console.log('expenseId:', id);
+    console.log('updates:', JSON.stringify(updates, null, 2));
     try {
       const { data, error } = await supabase
         .from('expenses')
@@ -429,6 +432,8 @@ export const useExpenses = () => {
         .eq('id', id)
         .select()
         .single();
+
+      console.log('updateExpense supabase response:', { data, error });
 
       if (error) throw error;
 
@@ -495,8 +500,16 @@ export const useExpenses = () => {
   };
 
   const makeEarlyPayment = async (expenseId: string, paymentAmount: number, additionalDiscount: number = 0) => {
+    console.log('=== makeEarlyPayment CALLED ===');
+    console.log('expenseId:', expenseId);
+    console.log('paymentAmount:', paymentAmount);
+    console.log('additionalDiscount:', additionalDiscount);
+    
     const expense = expenses.find(e => e.id === expenseId);
-    if (!expense || !expense.is_financing) return;
+    if (!expense || !expense.is_financing) {
+      console.log('Expense not found or not financing:', { expense: !!expense, isFinancing: expense?.is_financing });
+      return;
+    }
 
     const totalAmount = expense.financing_total_amount || 0;
     const paidAmount = expense.financing_paid_amount || 0;
@@ -505,12 +518,27 @@ export const useExpenses = () => {
     const monthsPaid = expense.financing_months_paid || 0;
     const discountRate = expense.early_payment_discount_rate || 0;
 
+    console.log('Current expense state:', {
+      totalAmount,
+      paidAmount,
+      discountAmount,
+      monthsTotal,
+      monthsPaid,
+      discountRate
+    });
+
     // Calculate remaining amount after current payments and discounts
     const remainingAmount = totalAmount - paidAmount - discountAmount;
     
     // Apply discount proportionally to the payment amount + additional discount
     let newDiscountAmount = discountAmount + additionalDiscount;
     let adjustedPaymentAmount = paymentAmount;
+    
+    console.log('Before discount calculation:', {
+      remainingAmount,
+      newDiscountAmount,
+      adjustedPaymentAmount
+    });
     
     if (discountRate > 0 && paymentAmount > 0) {
       // Calculate what percentage of remaining amount is being paid
@@ -531,7 +559,7 @@ export const useExpenses = () => {
         // Keep the payment amount as informed by user, but track the discount
       }
       
-      console.log('Early Payment Debug:', {
+      console.log('After discount calculation:', {
         paymentAmount,
         remainingAmount,
         additionalDiscount,
@@ -547,12 +575,29 @@ export const useExpenses = () => {
     const totalAfterDiscount = totalAmount - newDiscountAmount;
     const isFullyPaid = newPaidAmount >= totalAfterDiscount;
 
+    console.log('Final calculation:', {
+      newPaidAmount,
+      newDiscountAmount,
+      totalAfterDiscount,
+      isFullyPaid
+    });
+
+    console.log('=== UPDATING EXPENSE IN DB ===');
+    console.log('Update payload:', {
+      financing_paid_amount: newPaidAmount,
+      financing_discount_amount: newDiscountAmount,
+      is_paid: isFullyPaid,
+      paid_at: isFullyPaid ? new Date().toISOString() : undefined,
+    });
+
     await updateExpense(expenseId, {
       financing_paid_amount: newPaidAmount,
       financing_discount_amount: newDiscountAmount,
       is_paid: isFullyPaid,
       paid_at: isFullyPaid ? new Date().toISOString() : undefined,
     });
+    
+    console.log('=== makeEarlyPayment COMPLETED ===');
   };
 
   // Auto-generate instances when expenses change or month is selected
