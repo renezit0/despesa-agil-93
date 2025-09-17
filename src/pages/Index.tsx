@@ -88,9 +88,7 @@ const Index = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg sm:text-xl lg:text-3xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text truncate text-slate-950 font-thin">seeLL</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                  Controle inteligente de gastos
-                </p>
+                
               </div>
             </div>
 
