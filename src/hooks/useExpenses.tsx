@@ -494,7 +494,7 @@ export const useExpenses = () => {
     };
   };
 
-  const makeEarlyPayment = async (expenseId: string, paymentAmount: number) => {
+  const makeEarlyPayment = async (expenseId: string, paymentAmount: number, additionalDiscount: number = 0) => {
     const expense = expenses.find(e => e.id === expenseId);
     if (!expense || !expense.is_financing) return;
 
@@ -508,8 +508,8 @@ export const useExpenses = () => {
     // Calculate remaining amount after current payments and discounts
     const remainingAmount = totalAmount - paidAmount - discountAmount;
     
-    // Apply discount proportionally to the payment amount
-    let newDiscountAmount = discountAmount;
+    // Apply discount proportionally to the payment amount + additional discount
+    let newDiscountAmount = discountAmount + additionalDiscount;
     let adjustedPaymentAmount = paymentAmount;
     
     if (discountRate > 0 && paymentAmount > 0) {
@@ -523,11 +523,11 @@ export const useExpenses = () => {
       // Adjust payment considering the discount
       if (paymentAmount >= remainingAmount) {
         // Full payment - apply full discount
-        newDiscountAmount = discountAmount + maxDiscount;
+        newDiscountAmount = discountAmount + maxDiscount + additionalDiscount;
         adjustedPaymentAmount = remainingAmount - maxDiscount;
       } else {
-        // Partial payment - apply proportional discount
-        newDiscountAmount = discountAmount + applicableDiscount;
+        // Partial payment - apply proportional discount + additional discount
+        newDiscountAmount = discountAmount + applicableDiscount + additionalDiscount;
         // Keep the payment amount as informed by user, but track the discount
       }
       

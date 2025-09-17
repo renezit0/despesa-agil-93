@@ -112,6 +112,10 @@ export function EarlyPaymentDialog({
   }
 
   const finalAmount = customAmount ? parseFloat(customAmount) : calculatedAmount;
+  
+  // Se o valor personalizado for menor que o calculado, considerar a diferença como desconto
+  const isCustomDiscount = customAmount && parseFloat(customAmount) < calculatedAmount;
+  const discountFromCustomAmount = isCustomDiscount ? calculatedAmount - parseFloat(customAmount) : 0;
 
   const handlePayment = async () => {
     if (!finalAmount || finalAmount <= 0) {
@@ -130,7 +134,9 @@ export function EarlyPaymentDialog({
         await toggleInstancePaid(currentInstance);
       } else {
         // Make early payment (remaining or with discount)
-        await makeEarlyPayment(expense.id, finalAmount);
+        // Se tem desconto personalizado, aplicar junto com o desconto da taxa
+        const totalDiscountAmount = discountFromCustomAmount + (paymentType === "early_discount" && discountRate > 0 ? (calculatedAmount * discountRate / 100) : 0);
+        await makeEarlyPayment(expense.id, finalAmount, totalDiscountAmount);
       }
       
       setCustomAmount("");
@@ -276,6 +282,11 @@ export function EarlyPaymentDialog({
             />
             <p className="text-xs text-muted-foreground">
               {description}
+              {isCustomDiscount && (
+                <span className="text-green-600 block">
+                  💰 Desconto personalizado de R$ {discountFromCustomAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} será aplicado!
+                </span>
+              )}
             </p>
           </div>
 
@@ -287,17 +298,35 @@ export function EarlyPaymentDialog({
                   <span>Valor a Pagar:</span>
                   <span>R$ {finalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
+                
+                {/* Desconto personalizado */}
+                {isCustomDiscount && (
+                  <div className="flex justify-between text-green-600 text-sm">
+                    <span>Desconto personalizado:</span>
+                    <span>- R$ {discountFromCustomAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                
+                {/* Desconto automático por taxa */}
                 {paymentType === "early_discount" && discountRate > 0 && (
                   <>
                     <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Saldo devedor:</span>
-                      <span>R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span>Valor base:</span>
+                      <span>R$ {calculatedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between text-green-600 text-sm">
                       <span>Desconto automático ({discountRate}%):</span>
-                      <span>- R$ {((finalAmount * discountRate) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span>- R$ {((calculatedAmount * discountRate) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   </>
+                )}
+                
+                {/* Total de descontos */}
+                {(isCustomDiscount || (paymentType === "early_discount" && discountRate > 0)) && (
+                  <div className="border-t pt-2 flex justify-between font-medium text-green-600">
+                    <span>Total de Descontos:</span>
+                    <span>- R$ {(discountFromCustomAmount + (paymentType === "early_discount" && discountRate > 0 ? (calculatedAmount * discountRate / 100) : 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
                 )}
               </div>
             </CardContent>
