@@ -78,7 +78,7 @@ export default function ExpenseInstances() {
                   {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {currentMonthInstances.length} {currentMonthInstances.length === 1 ? 'gasto' : 'gastos'}
+                  {loading ? 'Carregando...' : `${currentMonthInstances.length} ${currentMonthInstances.length === 1 ? 'gasto' : 'gastos'}`}
                 </p>
               </div>
               <Button
