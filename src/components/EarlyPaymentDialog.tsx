@@ -94,33 +94,26 @@ export function EarlyPaymentDialog({
   }
 
   // LÓGICA CORRIGIDA: Se o valor personalizado for menor, é um pagamento COM desconto
-  const hasCustomAmount = customAmount && parseFloat(customAmount) > 0;
+  const hasCustomAmount = customAmount && customAmount.trim() !== "" && !isNaN(parseFloat(customAmount));
   const customAmountValue = hasCustomAmount ? parseFloat(customAmount) : 0;
   
   // Se o valor personalizado é menor que o calculado = desconto personalizado
   const isCustomDiscount = hasCustomAmount && customAmountValue < calculatedAmount;
   const discountFromCustomAmount = isCustomDiscount ? calculatedAmount - customAmountValue : 0;
   
-  // FORÇAR LOG SEMPRE PARA DEBUG
-  console.log('🔍 VALORES DEBUG:', {
-    customAmount,
-    customAmountValue,
-    calculatedAmount,
-    isCustomDiscount,
-    discountFromCustomAmount,
-    hasCustomAmount
-  });
-  
   // O valor final é sempre o valor que você digitou (ou o calculado se não digitou nada)
   const finalAmount = hasCustomAmount ? customAmountValue : calculatedAmount;
 
   const handlePayment = async () => {
-    console.log('=== PAYMENT HANDLE START ===');
-    console.log('customAmount:', customAmount);
-    console.log('calculatedAmount:', calculatedAmount);
-    console.log('finalAmount:', finalAmount);
-    console.log('isCustomDiscount:', isCustomDiscount);
-    console.log('discountFromCustomAmount:', discountFromCustomAmount);
+    // DEBUG FINAL - só executa quando clica no botão
+    console.log('🚀 PAYMENT START - RAW VALUES:', {
+      'customAmount (raw)': customAmount,
+      'customAmount type': typeof customAmount,
+      'customAmount length': customAmount?.length,
+      'parsed': customAmount ? parseFloat(customAmount) : 'EMPTY',
+      'finalAmount': finalAmount,
+      'discountFromCustomAmount': discountFromCustomAmount
+    });
     
     if (!finalAmount || finalAmount <= 0) {
       toast({
