@@ -113,7 +113,12 @@ const Index = () => {
                 <PlusCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">Gerenciar</span>
               </Button>
-              <Button variant="outline" size="sm" className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate("/profile")}
+                className="flex items-center space-x-2"
+              >
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline">Perfil</span>
               </Button>
