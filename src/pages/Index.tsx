@@ -15,7 +15,7 @@ import financialHero from "@/assets/financial-hero.jpg";
 const Index = () => {
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const { expenses, loading: expensesLoading, updateExpense, deleteExpense, fetchExpensesForMonth } = useExpenses();
+  const { expenseInstances, loading: expensesLoading, updateExpense, deleteExpense, generateExpenseInstances, toggleInstancePaid } = useExpenses();
 
   // Redirect to auth if not authenticated
   useEffect(() => {
@@ -25,9 +25,9 @@ const Index = () => {
   }, [user, loading, navigate]);
 
   const handleTogglePaid = async (id: string) => {
-    const expense = expenses.find(e => e.id === id);
-    if (expense) {
-      await updateExpense(id, { is_paid: !expense.is_paid });
+    const instance = expenseInstances.find(e => e.id === id);
+    if (instance) {
+      await toggleInstancePaid(instance);
     }
   };
 
@@ -36,16 +36,16 @@ const Index = () => {
   };
 
   const handleMonthChange = async (month: Date) => {
-    await fetchExpensesForMonth(month);
+    await generateExpenseInstances(month);
   };
 
-  // Calculate summary data
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const paidExpenses = expenses.filter(e => e.is_paid).reduce((sum, expense) => sum + expense.amount, 0);
+  // Calculate summary data from instances
+  const totalExpenses = expenseInstances.reduce((sum, instance) => sum + instance.amount, 0);
+  const paidExpenses = expenseInstances.filter(e => e.is_paid).reduce((sum, instance) => sum + instance.amount, 0);
   const pendingExpenses = totalExpenses - paidExpenses;
-  const overdueExpenses = expenses
+  const overdueExpenses = expenseInstances
     .filter(e => !e.is_paid && isBefore(new Date(e.due_date), new Date()))
-    .reduce((sum, expense) => sum + expense.amount, 0);
+    .reduce((sum, instance) => sum + instance.amount, 0);
 
   const handleSignOut = async () => {
     await signOut();
@@ -130,25 +130,25 @@ const Index = () => {
             title="Total de Gastos"
             amount={totalExpenses}
             icon="balance"
-            trend={expenses.length > 0 ? { value: 12.5, isPositive: false } : undefined}
+            trend={expenseInstances.length > 0 ? { value: 12.5, isPositive: false } : undefined}
           />
           <FinancialSummaryCard
             title="Valores Pagos"
             amount={paidExpenses}
             icon="income"
-            trend={expenses.length > 0 ? { value: 8.2, isPositive: true } : undefined}
+            trend={expenseInstances.length > 0 ? { value: 8.2, isPositive: true } : undefined}
           />
           <FinancialSummaryCard
             title="Pendentes"
             amount={pendingExpenses}
             icon="pending"
-            trend={expenses.length > 0 ? { value: 5.1, isPositive: false } : undefined}
+            trend={expenseInstances.length > 0 ? { value: 5.1, isPositive: false } : undefined}
           />
           <FinancialSummaryCard
             title="Vencidos"
             amount={overdueExpenses}
             icon="expense"
-            trend={expenses.length > 0 ? { value: 2.3, isPositive: false } : undefined}
+            trend={expenseInstances.length > 0 ? { value: 2.3, isPositive: false } : undefined}
           />
         </section>
 
@@ -158,23 +158,40 @@ const Index = () => {
         </section>
 
         {/* Quick Stats */}
-        {expenses.length > 0 && (
+        {expenseInstances.length > 0 && (
           <section>
-            <QuickStats expenses={expenses} />
+            <QuickStats expenses={expenseInstances.map(inst => ({
+              ...inst.original_expense,
+              amount: inst.amount,
+              is_paid: inst.is_paid,
+              due_date: inst.due_date
+            }))} />
           </section>
         )}
 
         {/* Charts */}
-        {expenses.length > 0 && (
+        {expenseInstances.length > 0 && (
           <section>
-            <ExpenseChart expenses={expenses} />
+            <ExpenseChart expenses={expenseInstances.map(inst => ({
+              ...inst.original_expense,
+              amount: inst.amount,
+              is_paid: inst.is_paid,
+              due_date: inst.due_date
+            }))} />
           </section>
         )}
 
         {/* Expense List */}
         <section>
           <ExpenseList
-            expenses={expenses}
+            expenses={expenseInstances.map(inst => ({
+              ...inst.original_expense,
+              id: inst.id,
+              title: inst.title,
+              amount: inst.amount,
+              is_paid: inst.is_paid,
+              due_date: inst.due_date
+            }))}
             onTogglePaid={handleTogglePaid}
             onDeleteExpense={handleDeleteExpense}
             onMonthChange={handleMonthChange}
@@ -182,7 +199,7 @@ const Index = () => {
         </section>
 
         {/* Empty State */}
-        {expenses.length === 0 && (
+        {expenseInstances.length === 0 && (
           <section className="text-center py-16">
             <div className="max-w-md mx-auto">
               <div className="relative mb-8">

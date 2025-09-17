@@ -74,6 +74,56 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_instances: {
+        Row: {
+          amount: number
+          created_at: string
+          expense_id: string
+          id: string
+          installment_number: number | null
+          instance_date: string
+          instance_type: string
+          is_paid: boolean
+          paid_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          expense_id: string
+          id?: string
+          installment_number?: number | null
+          instance_date: string
+          instance_type: string
+          is_paid?: boolean
+          paid_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          expense_id?: string
+          id?: string
+          installment_number?: number | null
+          instance_date?: string
+          instance_type?: string
+          is_paid?: boolean
+          paid_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_instances_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           amount: number
