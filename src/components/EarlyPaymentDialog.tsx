@@ -178,11 +178,6 @@ export function EarlyPaymentDialog({
         // Make early payment with custom discount
         await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
         
-        // Mark current instance as paid if it was selected
-        if (currentInstance && !currentInstance.is_paid) {
-          await toggleInstancePaid(currentInstance);
-        }
-        
         console.log('✅ makeEarlyPayment CONCLUÍDO COM SUCESSO');
       }
       
