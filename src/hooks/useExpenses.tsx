@@ -546,7 +546,16 @@ export const useExpenses = () => {
     });
 
     // 1. PRIMEIRO: Registrar a transação de pagamento
-    const { error: transactionError } = await supabase
+    console.log('💾 INSERINDO TRANSAÇÃO NO DB:', {
+      expense_id: expenseId,
+      user_id: user?.id,
+      payment_amount: paymentAmount,
+      discount_amount: customDiscount,
+      payment_type: customDiscount > 0 ? 'partial_payment' : 'early_payment',
+      user_available: !!user
+    });
+
+    const { data: transactionData, error: transactionError } = await supabase
       .from('payment_transactions')
       .insert({
         expense_id: expenseId,
@@ -555,10 +564,16 @@ export const useExpenses = () => {
         discount_amount: customDiscount,
         payment_type: customDiscount > 0 ? 'partial_payment' : 'early_payment',
         notes: customDiscount > 0 ? `Pagamento com desconto de R$ ${customDiscount.toFixed(2)}` : 'Pagamento antecipado'
-      });
+      })
+      .select();
+
+    console.log('💾 RESULTADO DA INSERÇÃO:', {
+      data: transactionData,
+      error: transactionError
+    });
 
     if (transactionError) {
-      console.error('Erro ao registrar transação:', transactionError);
+      console.error('❌ ERRO AO REGISTRAR TRANSAÇÃO:', transactionError);
       throw transactionError;
     }
 
