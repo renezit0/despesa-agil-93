@@ -64,10 +64,18 @@ export function EarlyPaymentDialog({
   const remainingAmount = totalAmount - totalPaidAmount - discountAmount;
   const remainingMonths = monthsTotal - monthsPaid;
   
-  // Debug log
-  console.log('EarlyPaymentDialog Debug:', {
+  // Debug log - detalhado para identificar o problema
+  console.log('EarlyPaymentDialog Debug - Instâncias Recebidas:', {
     totalAmount,
     paidAmount: paidAmount, // pagamentos antecipados
+    availableInstances: availableInstances.map(inst => ({
+      id: inst.id,
+      title: inst.title,
+      amount: inst.amount,
+      is_paid: inst.is_paid,
+      installment_number: inst.installment_number,
+      instance_date: inst.instance_date
+    })),
     paidFromInstances, // parcelas pagas individualmente
     totalPaidAmount, // total efetivamente pago
     discountAmount,

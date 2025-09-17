@@ -216,6 +216,65 @@ export const useExpenses = () => {
     }
   };
 
+  // Generate ALL instances for a specific financing expense
+  const generateAllFinancingInstances = async (expense: Expense): Promise<ExpenseInstance[]> => {
+    if (!expense.is_financing || !expense.financing_months_total || !expense.financing_total_amount) {
+      return [];
+    }
+
+    try {
+      // Fetch ALL existing instances for this financing
+      const { data: existingInstances, error } = await supabase
+        .from('expense_instances')
+        .select('*')
+        .eq('expense_id', expense.id)
+        .eq('instance_type', 'financing')
+        .order('installment_number');
+
+      if (error) throw error;
+
+      const instances: ExpenseInstance[] = [];
+      const instanceMap = new Map();
+      
+      // Map existing instances by installment number
+      (existingInstances || []).forEach(instance => {
+        instanceMap.set(instance.installment_number, instance);
+      });
+
+      const financingStart = new Date(expense.due_date);
+      const installmentAmount = expense.financing_total_amount / expense.financing_months_total;
+
+      // Generate all installments (1 to total months)
+      for (let i = 1; i <= expense.financing_months_total; i++) {
+        const installmentDate = new Date(financingStart);
+        installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+        const instanceDateStr = format(installmentDate, 'yyyy-MM-dd');
+        
+        const existingInstance = instanceMap.get(i);
+        
+        instances.push({
+          id: existingInstance?.id || `financing-${expense.id}-${i}`,
+          expense_id: expense.id,
+          title: `${expense.title} - Parcela ${i}/${expense.financing_months_total}`,
+          description: expense.description,
+          amount: installmentAmount,
+          category_id: expense.category_id,
+          due_date: instanceDateStr,
+          is_paid: existingInstance?.is_paid || false,
+          instance_type: 'financing',
+          installment_number: i,
+          instance_date: instanceDateStr,
+          original_expense: expense,
+        });
+      }
+
+      return instances;
+    } catch (error) {
+      console.error('Error generating all financing instances:', error);
+      return [];
+    }
+  };
+
   const fetchExpensesForMonth = async (month: Date) => {
     await fetchExpenses();
     // This will be called after expenses are loaded via useEffect
@@ -518,6 +577,7 @@ export const useExpenses = () => {
     refetchExpenses: fetchExpenses,
     fetchExpensesForMonth,
     generateExpenseInstances,
+    generateAllFinancingInstances,
     toggleInstancePaid,
     updateFinancingPaidMonths,
   };

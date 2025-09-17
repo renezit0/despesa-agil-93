@@ -19,6 +19,7 @@ export default function ExpenseInstances() {
   const { 
     expenseInstances, 
     generateExpenseInstances, 
+    generateAllFinancingInstances,
     toggleInstancePaid,
     loading 
   } = useExpenses();
@@ -191,12 +192,9 @@ export default function ExpenseInstances() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            // Get ALL instances for this financing, not just current month
-                            const financingInstances = expenseInstances.filter(
-                              inst => inst.original_expense.id === instance.original_expense.id && 
-                                      inst.instance_type === 'financing'
-                            );
+                          onClick={async () => {
+                            // Get ALL instances for this financing expense
+                            const financingInstances = await generateAllFinancingInstances(instance.original_expense);
                             setSelectedFinancing(instance.original_expense);
                             setFinancingInstances(financingInstances);
                             setSelectedInstance(instance);
