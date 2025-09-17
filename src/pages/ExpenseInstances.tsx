@@ -192,8 +192,8 @@ export default function ExpenseInstances() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            // Get all instances for this financing
-                            const financingInstances = currentMonthInstances.filter(
+                            // Get ALL instances for this financing, not just current month
+                            const financingInstances = expenseInstances.filter(
                               inst => inst.original_expense.id === instance.original_expense.id && 
                                       inst.instance_type === 'financing'
                             );
