@@ -422,9 +422,6 @@ export const useExpenses = () => {
   };
 
   const updateExpense = async (id: string, updates: Partial<Expense>) => {
-    console.log('=== updateExpense CALLED ===');
-    console.log('expenseId:', id);
-    console.log('updates:', JSON.stringify(updates, null, 2));
     try {
       const { data, error } = await supabase
         .from('expenses')
@@ -432,8 +429,6 @@ export const useExpenses = () => {
         .eq('id', id)
         .select()
         .single();
-
-      console.log('updateExpense supabase response:', { data, error });
 
       if (error) throw error;
 
@@ -500,87 +495,29 @@ export const useExpenses = () => {
   };
 
   const makeEarlyPayment = async (expenseId: string, paymentAmount: number, customDiscount: number = 0) => {
-    console.log('=== makeEarlyPayment CALLED ===');
-    console.log('expenseId:', expenseId);
-    console.log('paymentAmount:', paymentAmount);
-    console.log('customDiscount:', customDiscount);
-    
     const expense = expenses.find(e => e.id === expenseId);
-    if (!expense || !expense.is_financing) {
-      console.log('Expense not found or not financing:', { expense: !!expense, isFinancing: expense?.is_financing });
-      return;
-    }
+    if (!expense || !expense.is_financing) return;
 
     const totalAmount = expense.financing_total_amount || 0;
     const paidAmount = expense.financing_paid_amount || 0;
     const discountAmount = expense.financing_discount_amount || 0;
-    const monthsTotal = expense.financing_months_total || 0;
-    const monthsPaid = expense.financing_months_paid || 0;
     const discountRate = expense.early_payment_discount_rate || 0;
-
-    console.log('Current expense state:', {
-      totalAmount,
-      paidAmount,
-      discountAmount,
-      monthsTotal,
-      monthsPaid,
-      discountRate
-    });
 
     // Calculate remaining amount after current payments and discounts
     const remainingAmount = totalAmount - paidAmount - discountAmount;
     
-    // Apply discount proportionally to the payment amount + custom discount
+    // LÓGICA CORRIGIDA: Qualquer valor menor que o devido É desconto
     let newDiscountAmount = discountAmount + customDiscount;
-    let adjustedPaymentAmount = paymentAmount;
     
-    console.log('Before discount calculation:', {
-      remainingAmount,
-      newDiscountAmount,
-      adjustedPaymentAmount
-    });
-    
-    if (discountRate > 0 && paymentAmount > 0) {
-      // Calculate what percentage of remaining amount is being paid
-      const paymentPercentage = Math.min(paymentAmount / remainingAmount, 1);
-      
-      // Apply discount proportionally
-      const maxDiscount = remainingAmount * (discountRate / 100);
-      const applicableDiscount = maxDiscount * paymentPercentage;
-      
-      // Adjust payment considering the discount
-      if (paymentAmount >= remainingAmount) {
-        // Full payment - apply full discount
-        newDiscountAmount = discountAmount + maxDiscount + customDiscount;
-        adjustedPaymentAmount = remainingAmount - maxDiscount;
-      } else {
-        // Partial payment - apply proportional discount + custom discount
-        newDiscountAmount = discountAmount + applicableDiscount + customDiscount;
-        // Keep the payment amount as informed by user, but track the discount
-      }
-      
-      console.log('After discount calculation:', {
-        paymentAmount,
-        remainingAmount,
-        customDiscount,
-        paymentPercentage,
-        maxDiscount,
-        applicableDiscount,
-        newDiscountAmount,
-        adjustedPaymentAmount
-      });
+    // Se tem taxa de desconto E está pagando o valor total, aplica a taxa também
+    if (discountRate > 0 && paymentAmount >= remainingAmount) {
+      const automaticDiscount = remainingAmount * (discountRate / 100);
+      newDiscountAmount = discountAmount + automaticDiscount + customDiscount;
     }
 
     const newPaidAmount = paidAmount + paymentAmount;
     const totalAfterDiscount = totalAmount - newDiscountAmount;
     const isFullyPaid = newPaidAmount >= totalAfterDiscount;
-
-    console.log('Final calculation:', {
-      newPaidAmount,
-      newDiscountAmount,
-      totalAfterDiscount,
-      isFullyPaid
-    });
 
     console.log('=== UPDATING EXPENSE IN DB ===');
     console.log('Update payload:', {

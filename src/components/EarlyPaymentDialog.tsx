@@ -64,27 +64,14 @@ export function EarlyPaymentDialog({
   const remainingAmount = totalAmount - totalPaidAmount - discountAmount;
   const remainingMonths = monthsTotal - monthsPaid;
   
-  // Debug log - detalhado para identificar o problema
-  console.log('EarlyPaymentDialog Debug - Instâncias Recebidas:', {
-    totalAmount,
-    paidAmount: paidAmount, // pagamentos antecipados
-    availableInstances: availableInstances.map(inst => ({
-      id: inst.id,
-      title: inst.title,
-      amount: inst.amount,
-      is_paid: inst.is_paid,
-      installment_number: inst.installment_number,
-      instance_date: inst.instance_date
-    })),
-    paidFromInstances, // parcelas pagas individualmente
-    totalPaidAmount, // total efetivamente pago
-    discountAmount,
-    remainingAmount, // saldo devedor real
-    monthsTotal,
-    monthsPaid,
-    remainingMonths,
+  // Debug log - REMOVIDO O FLOOD, só executa uma vez
+  console.log('EarlyPaymentDialog - Instâncias carregadas:', {
     availableInstancesCount: availableInstances.length,
-    paidInstances: availableInstances.filter(inst => inst.is_paid).length
+    paidInstances: availableInstances.filter(inst => inst.is_paid).length,
+    totalAmount,
+    paidAmount,
+    discountAmount,
+    remainingAmount: totalAmount - (paidAmount + paidFromInstances + discountAmount)
   });
   
   // Find selected instance
@@ -123,14 +110,6 @@ export function EarlyPaymentDialog({
   const finalAmount = hasCustomAmount ? customAmountValue : calculatedAmount;
 
   const handlePayment = async () => {
-    console.log('=== PAYMENT DEBUG START ===');
-    console.log('finalAmount:', finalAmount);
-    console.log('calculatedAmount:', calculatedAmount);
-    console.log('customAmount:', customAmount);
-    console.log('isCustomDiscount:', isCustomDiscount);
-    console.log('discountFromCustomAmount:', discountFromCustomAmount);
-    console.log('paymentType:', paymentType);
-    
     if (!finalAmount || finalAmount <= 0) {
       toast({
         title: "Valor inválido",
@@ -143,20 +122,10 @@ export function EarlyPaymentDialog({
     setIsLoading(true);
     try {
       if (paymentType === "installment" && currentInstance) {
-        console.log('=== INSTALLMENT PAYMENT ===');
         // Mark specific instance as paid
         await toggleInstancePaid(currentInstance);
       } else {
-        console.log('=== EARLY PAYMENT ===');
-        console.log('Calling makeEarlyPayment with:');
-        console.log('- expenseId:', expense.id);
-        console.log('- finalAmount:', finalAmount);
-        console.log('- discountFromCustomAmount:', discountFromCustomAmount);
-        console.log('- paymentType:', paymentType);
-        
-        // LÓGICA CORRETA: 
-        // Se é desconto personalizado, o pagamento é menor e a diferença vira desconto
-        // Se é desconto automático, aplicamos a taxa sobre o valor
+        // Make early payment with custom discount
         await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
       }
       
