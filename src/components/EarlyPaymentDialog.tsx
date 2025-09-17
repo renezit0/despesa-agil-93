@@ -111,11 +111,16 @@ export function EarlyPaymentDialog({
       break;
   }
 
-  const finalAmount = customAmount ? parseFloat(customAmount) : calculatedAmount;
+  // LÓGICA CORRIGIDA: Se o valor personalizado for menor, é um pagamento COM desconto
+  const hasCustomAmount = customAmount && parseFloat(customAmount) > 0;
+  const customAmountValue = hasCustomAmount ? parseFloat(customAmount) : 0;
   
-  // Se o valor personalizado for menor que o calculado, considerar a diferença como desconto
-  const isCustomDiscount = customAmount && parseFloat(customAmount) < calculatedAmount;
-  const discountFromCustomAmount = isCustomDiscount ? calculatedAmount - parseFloat(customAmount) : 0;
+  // Se o valor personalizado é menor que o calculado = desconto personalizado
+  const isCustomDiscount = hasCustomAmount && customAmountValue < calculatedAmount;
+  const discountFromCustomAmount = isCustomDiscount ? calculatedAmount - customAmountValue : 0;
+  
+  // O valor final é sempre o valor que você digitou (ou o calculado se não digitou nada)
+  const finalAmount = hasCustomAmount ? customAmountValue : calculatedAmount;
 
   const handlePayment = async () => {
     console.log('=== PAYMENT DEBUG START ===');
@@ -147,9 +152,11 @@ export function EarlyPaymentDialog({
         console.log('- expenseId:', expense.id);
         console.log('- finalAmount:', finalAmount);
         console.log('- discountFromCustomAmount:', discountFromCustomAmount);
+        console.log('- paymentType:', paymentType);
         
-        // Make early payment (remaining or with discount)
-        // Aplicar desconto personalizado se houver
+        // LÓGICA CORRETA: 
+        // Se é desconto personalizado, o pagamento é menor e a diferença vira desconto
+        // Se é desconto automático, aplicamos a taxa sobre o valor
         await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
       }
       

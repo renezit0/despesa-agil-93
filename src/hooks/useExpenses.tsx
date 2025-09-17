@@ -499,11 +499,11 @@ export const useExpenses = () => {
     };
   };
 
-  const makeEarlyPayment = async (expenseId: string, paymentAmount: number, additionalDiscount: number = 0) => {
+  const makeEarlyPayment = async (expenseId: string, paymentAmount: number, customDiscount: number = 0) => {
     console.log('=== makeEarlyPayment CALLED ===');
     console.log('expenseId:', expenseId);
     console.log('paymentAmount:', paymentAmount);
-    console.log('additionalDiscount:', additionalDiscount);
+    console.log('customDiscount:', customDiscount);
     
     const expense = expenses.find(e => e.id === expenseId);
     if (!expense || !expense.is_financing) {
@@ -530,8 +530,8 @@ export const useExpenses = () => {
     // Calculate remaining amount after current payments and discounts
     const remainingAmount = totalAmount - paidAmount - discountAmount;
     
-    // Apply discount proportionally to the payment amount + additional discount
-    let newDiscountAmount = discountAmount + additionalDiscount;
+    // Apply discount proportionally to the payment amount + custom discount
+    let newDiscountAmount = discountAmount + customDiscount;
     let adjustedPaymentAmount = paymentAmount;
     
     console.log('Before discount calculation:', {
@@ -551,18 +551,18 @@ export const useExpenses = () => {
       // Adjust payment considering the discount
       if (paymentAmount >= remainingAmount) {
         // Full payment - apply full discount
-        newDiscountAmount = discountAmount + maxDiscount + additionalDiscount;
+        newDiscountAmount = discountAmount + maxDiscount + customDiscount;
         adjustedPaymentAmount = remainingAmount - maxDiscount;
       } else {
-        // Partial payment - apply proportional discount + additional discount
-        newDiscountAmount = discountAmount + applicableDiscount + additionalDiscount;
+        // Partial payment - apply proportional discount + custom discount
+        newDiscountAmount = discountAmount + applicableDiscount + customDiscount;
         // Keep the payment amount as informed by user, but track the discount
       }
       
       console.log('After discount calculation:', {
         paymentAmount,
         remainingAmount,
-        additionalDiscount,
+        customDiscount,
         paymentPercentage,
         maxDiscount,
         applicableDiscount,
