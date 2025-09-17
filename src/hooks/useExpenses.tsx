@@ -48,33 +48,40 @@ export const useExpenses = () => {
     
     setLoading(true);
     try {
+      // Always fetch all expenses first
+      const { data: allExpenses, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('due_date', { ascending: false });
+
+      if (error) throw error;
+
+      let filteredExpenses = allExpenses || [];
+
       if (month) {
-        // Get the first and last day of the target month
-        const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
-        const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+        // Filter expenses for the specific month
+        const targetMonth = month.getMonth();
+        const targetYear = month.getFullYear();
         
-        const { data, error } = await supabase
-          .from('expenses')
-          .select('*')
-          .eq('user_id', user.id)
-          .or(
-            `and(due_date.gte.${startOfMonth.toISOString().split('T')[0]},due_date.lte.${endOfMonth.toISOString().split('T')[0]}),and(is_recurring.eq.true,due_date.lte.${endOfMonth.toISOString().split('T')[0]})`
-          )
-          .order('due_date', { ascending: false });
-
-        if (error) throw error;
-        setExpenses(data || []);
-      } else {
-        // Regular fetch for all expenses
-        const { data, error } = await supabase
-          .from('expenses')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('due_date', { ascending: false });
-
-        if (error) throw error;
-        setExpenses(data || []);
+        filteredExpenses = (allExpenses || []).filter(expense => {
+          const expenseDate = new Date(expense.due_date);
+          const isInMonth = expenseDate.getMonth() === targetMonth && expenseDate.getFullYear() === targetYear;
+          
+          // Include recurring expenses that should appear in this month
+          const isRecurringForMonth = expense.is_recurring && expenseDate <= month;
+          
+          // Include financing expenses with remaining installments
+          const isFinancingForMonth = expense.is_financing && 
+            expense.financing_months_total && 
+            expense.financing_months_paid < expense.financing_months_total &&
+            expenseDate <= month;
+          
+          return isInMonth || isRecurringForMonth || isFinancingForMonth;
+        });
       }
+
+      setExpenses(filteredExpenses);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       toast({
