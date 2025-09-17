@@ -36,8 +36,8 @@ export default function ExpenseInstances() {
     setCurrentMonth(newMonth);
   };
 
-  // Filter instances for current month
-  const currentMonthInstances = expenseInstances.filter(instance => {
+  // Filter instances for current month - only filter when data is ready
+  const currentMonthInstances = loading ? [] : expenseInstances.filter(instance => {
     const instanceDate = new Date(instance.instance_date);
     return instanceDate.getMonth() === currentMonth.getMonth() && 
            instanceDate.getFullYear() === currentMonth.getFullYear();

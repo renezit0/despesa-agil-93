@@ -9,6 +9,7 @@ import { TrendingUp } from "lucide-react";
 
 interface ExpenseChartProps {
   expenses: Expense[];
+  expenseInstances?: any[]; // Include instances for comprehensive data
 }
 
 const COLORS = [
@@ -24,25 +25,63 @@ const COLORS = [
   '#a4de6c'
 ];
 
-export function ExpenseChart({ expenses }: ExpenseChartProps) {
+export function ExpenseChart({ expenses, expenseInstances = [] }: ExpenseChartProps) {
   const [chartType, setChartType] = useState<"monthly" | "category" | "trend">("monthly");
   const [period, setPeriod] = useState("6"); // months
 
+  // Create a combined dataset including both base expenses and generated instances
+  const allExpenseData = () => {
+    const combined = [];
+    
+    // Add base expenses
+    expenses.forEach(expense => {
+      combined.push({
+        id: expense.id,
+        title: expense.title,
+        amount: expense.amount,
+        category_id: expense.category_id,
+        due_date: expense.due_date,
+        is_paid: expense.is_paid,
+        is_recurring: expense.is_recurring,
+        is_financing: expense.is_financing
+      });
+    });
+    
+    // Add instances that aren't duplicates (recurring and financing)
+    expenseInstances.forEach(instance => {
+      if (instance.instance_type !== 'normal') {
+        combined.push({
+          id: instance.id,
+          title: instance.title,
+          amount: instance.amount,
+          category_id: instance.category_id,
+          due_date: instance.due_date,
+          is_paid: instance.is_paid,
+          is_recurring: instance.instance_type === 'recurring',
+          is_financing: instance.instance_type === 'financing'
+        });
+      }
+    });
+    
+    return combined;
+  };
+
   // Monthly expenses data
   const getMonthlyData = () => {
+    const allData = allExpenseData();
     const months = eachMonthOfInterval({
       start: subMonths(new Date(), parseInt(period) - 1),
       end: new Date()
     });
 
     return months.map(month => {
-      const monthExpenses = expenses.filter(expense => {
+      const monthExpenses = allData.filter(expense => {
         const expenseMonth = startOfMonth(new Date(expense.due_date));
         return expenseMonth.getTime() === month.getTime();
       });
 
-      const total = monthExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-      const paid = monthExpenses.filter(e => e.is_paid).reduce((sum, expense) => sum + expense.amount, 0);
+      const total = monthExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      const paid = monthExpenses.filter(e => e.is_paid).reduce((sum, expense) => sum + (expense.amount || 0), 0);
       const pending = total - paid;
 
       return {
@@ -57,32 +96,34 @@ export function ExpenseChart({ expenses }: ExpenseChartProps) {
 
   // Category expenses data
   const getCategoryData = () => {
-    const categoryTotals = expenses.reduce((acc, expense) => {
+    const allData = allExpenseData();
+    const categoryTotals = allData.reduce((acc, expense) => {
       const category = expense.category_id || 'Sem categoria';
-      acc[category] = (acc[category] || 0) + expense.amount;
+      acc[category] = (acc[category] || 0) + (expense.amount || 0);
       return acc;
     }, {} as Record<string, number>);
 
     return Object.entries(categoryTotals)
-      .map(([category, amount]) => ({ category, amount }))
-      .sort((a, b) => b.amount - a.amount);
+      .map(([category, amount]) => ({ category, amount: Number(amount) || 0 }))
+      .sort((a, b) => (b.amount || 0) - (a.amount || 0));
   };
 
   // Trend data (paid vs pending over time)
   const getTrendData = () => {
+    const allData = allExpenseData();
     const months = eachMonthOfInterval({
       start: subMonths(new Date(), parseInt(period) - 1),
       end: new Date()
     });
 
     return months.map(month => {
-      const monthExpenses = expenses.filter(expense => {
+      const monthExpenses = allData.filter(expense => {
         const expenseMonth = startOfMonth(new Date(expense.due_date));
         return expenseMonth.getTime() === month.getTime();
       });
 
-      const paid = monthExpenses.filter(e => e.is_paid).reduce((sum, expense) => sum + expense.amount, 0);
-      const pending = monthExpenses.filter(e => !e.is_paid).reduce((sum, expense) => sum + expense.amount, 0);
+      const paid = monthExpenses.filter(e => e.is_paid).reduce((sum, expense) => sum + (expense.amount || 0), 0);
+      const pending = monthExpenses.filter(e => !e.is_paid).reduce((sum, expense) => sum + (expense.amount || 0), 0);
 
       return {
         month: format(month, "MMM/yy", { locale: ptBR }),
@@ -273,7 +314,7 @@ export function ExpenseChart({ expenses }: ExpenseChartProps) {
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-muted-foreground">
-              {expenses.length}
+              {allExpenseData().length}
             </p>
             <p className="text-sm text-muted-foreground">Gastos</p>
           </div>

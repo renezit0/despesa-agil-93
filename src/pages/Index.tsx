@@ -170,9 +170,9 @@ const Index = () => {
         )}
 
         {/* Charts */}
-        {expenses.length > 0 && (
+        {(expenses.length > 0 || expenseInstances.length > 0) && (
           <section>
-            <ExpenseChart expenses={expenses} />
+            <ExpenseChart expenses={expenses} expenseInstances={expenseInstances} />
           </section>
         )}
 
