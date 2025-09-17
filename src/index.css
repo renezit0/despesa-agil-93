@@ -144,4 +144,24 @@
   *:focus-visible {
     @apply ring-2 ring-primary ring-offset-2 ring-offset-background outline-none;
   }
+
+  /* Hover scale animation */
+  .hover-scale {
+    @apply transition-transform duration-200 hover:scale-105;
+  }
+
+  /* Prevent overflow on mobile */
+  .mobile-safe {
+    @apply max-w-full overflow-hidden;
+  }
+
+  /* Truncate text safely */
+  .text-safe {
+    @apply truncate min-w-0;
+  }
+
+  /* Better button spacing on mobile */
+  .btn-mobile {
+    @apply min-w-0 flex-shrink-0;
+  }
 }

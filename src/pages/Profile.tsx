@@ -106,25 +106,25 @@ const Profile = () => {
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 max-w-4xl animate-fade-in">
       {/* Header - Mobile Optimized */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
-        <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-3 sm:space-y-0 gap-4">
+        <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto min-w-0">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => navigate("/")}
-            className="text-muted-foreground hover:text-foreground p-2"
+            className="text-muted-foreground hover:text-foreground p-2 flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Voltar</span>
           </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold">Meu Perfil</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">Gerencie suas informações pessoais</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">Meu Perfil</h1>
+            <p className="text-xs sm:text-sm lg:text-base text-muted-foreground truncate">Gerencie suas informações pessoais</p>
           </div>
         </div>
         
         {!isEditing && (
-          <Button onClick={() => setIsEditing(true)} size="sm" className="w-full sm:w-auto">
+          <Button onClick={() => setIsEditing(true)} size="sm" className="w-full sm:w-auto flex-shrink-0">
             Editar Perfil
           </Button>
         )}

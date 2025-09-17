@@ -81,8 +81,8 @@ const Index = () => {
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              <div className="relative w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-primary-foreground shadow-lg">
+            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+              <div className="relative w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-primary-foreground shadow-lg flex-shrink-0">
                 <img 
                   src={financialHero} 
                   alt="Controle Financeiro" 
@@ -90,43 +90,52 @@ const Index = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent" />
               </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl lg:text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent truncate">
                   DespesaÁgil
                 </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">
                   Controle inteligente de gastos
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto justify-stretch sm:justify-start">
               <Button 
                 variant="default" 
                 size="sm" 
                 onClick={() => navigate("/manage-expenses")}
-                className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm flex-1 sm:flex-none"
+                className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm flex-1 sm:flex-none min-w-0"
               >
-                <PlusCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span>Gerenciar</span>
+                <PlusCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="truncate">Gerenciar</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate("/contacts")}
+                className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm flex-1 sm:flex-none min-w-0"
+              >
+                <Users className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="truncate">Contatos</span>
               </Button>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => navigate("/profile")}
-                className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
+                className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm flex-1 sm:flex-none min-w-0"
               >
-                <User className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span>Perfil</span>
+                <User className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="truncate">Perfil</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleSignOut}
-                className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm"
+                className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm flex-1 sm:flex-none min-w-0"
               >
-                <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span>Sair</span>
+                <LogOut className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="truncate">Sair</span>
               </Button>
             </div>
           </div>
@@ -180,23 +189,23 @@ const Index = () => {
         </section>
 
         {/* Additional Quick Actions - Mobile Only */}
-        <section className="lg:hidden">
-          <div className="grid grid-cols-2 gap-4">
+        <section className="lg:hidden px-1">
+          <div className="grid grid-cols-2 gap-3">
             <Button 
               variant="outline" 
-              className="h-20 flex-col space-y-2"
+              className="h-16 flex-col space-y-1 text-xs"
               onClick={() => navigate("/contacts")}
             >
-              <Users className="h-6 w-6" />
-              <span className="text-sm">Contatos</span>
+              <Users className="h-5 w-5" />
+              <span>Contatos</span>
             </Button>
             <Button 
               variant="outline" 
-              className="h-20 flex-col space-y-2"
+              className="h-16 flex-col space-y-1 text-xs"
               onClick={() => navigate("/manage-expenses")}
             >
-              <Wallet className="h-6 w-6" />
-              <span className="text-sm">Gastos</span>
+              <Wallet className="h-5 w-5" />
+              <span>Gastos</span>
             </Button>
           </div>
         </section>

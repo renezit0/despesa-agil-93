@@ -171,20 +171,20 @@ const ManageExpenses = () => {
   return (
     <div className="container mx-auto px-4 py-4 sm:py-8 animate-fade-in">
       {/* Header - Mobile Responsive */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
-        <div className="flex items-center space-x-2 sm:space-x-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-3 sm:space-y-0 gap-4">
+        <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={() => navigate("/")}
-            className="text-muted-foreground hover:text-foreground p-2"
+            className="text-muted-foreground hover:text-foreground p-2 flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Voltar</span>
           </Button>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Gerenciar Gastos</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">Gerenciar Gastos</h1>
+            <p className="text-xs sm:text-sm lg:text-base text-muted-foreground truncate">
               Visualize e edite todos os seus gastos
             </p>
           </div>
