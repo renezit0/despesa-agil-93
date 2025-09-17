@@ -46,23 +46,34 @@ export function EarlyPaymentDialog({
   const paidAmount = expense.financing_paid_amount || 0;
   const discountAmount = expense.financing_discount_amount || 0;
   const monthsTotal = expense.financing_months_total || 0;
+  const discountRate = expense.early_payment_discount_rate || 0;
   
   // Calculate paid months from actual instances, not from the expense field
   const paidInstancesCount = availableInstances.filter(inst => inst.is_paid).length;
   const monthsPaid = paidInstancesCount;
-  const discountRate = expense.early_payment_discount_rate || 0;
-
-  const remainingAmount = totalAmount - paidAmount - discountAmount;
+  
+  // Calculate total paid from instances (parcelas pagas individualmente)
+  const paidFromInstances = availableInstances
+    .filter(inst => inst.is_paid)
+    .reduce((sum, inst) => sum + inst.amount, 0);
+  
+  // Total efetivamente pago = pagamentos antecipados + parcelas pagas individualmente
+  const totalPaidAmount = paidAmount + paidFromInstances;
+  
+  // Saldo devedor = valor total - total pago - descontos já aplicados
+  const remainingAmount = totalAmount - totalPaidAmount - discountAmount;
   const remainingMonths = monthsTotal - monthsPaid;
   
   // Debug log
   console.log('EarlyPaymentDialog Debug:', {
     totalAmount,
-    paidAmount,
+    paidAmount: paidAmount, // pagamentos antecipados
+    paidFromInstances, // parcelas pagas individualmente
+    totalPaidAmount, // total efetivamente pago
     discountAmount,
+    remainingAmount, // saldo devedor real
     monthsTotal,
     monthsPaid,
-    paidInstancesCount,
     remainingMonths,
     availableInstancesCount: availableInstances.length,
     paidInstances: availableInstances.filter(inst => inst.is_paid).length
@@ -82,12 +93,12 @@ export function EarlyPaymentDialog({
       description = "Pagamento da parcela selecionada";
       break;
     case "remaining":
-      calculatedAmount = remainingAmount;
-      description = "Pagamento do saldo devedor sem desconto";
+      calculatedAmount = Math.max(0, remainingAmount);
+      description = "Pagamento do saldo devedor restante";
       break;
     case "early_discount":
-      const discount = discountRate > 0 ? (remainingAmount * discountRate / 100) : 0;
-      calculatedAmount = remainingAmount;
+      const discount = discountRate > 0 ? (Math.max(0, remainingAmount) * discountRate / 100) : 0;
+      calculatedAmount = Math.max(0, remainingAmount);
       description = `Pagamento do saldo devedor com ${discountRate}% desconto (economia de R$ ${discount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`;
       break;
   }
@@ -182,18 +193,19 @@ export function EarlyPaymentDialog({
                 <Label htmlFor="remaining" className="flex-1">
                   Quitar Saldo Devedor
                   <span className="text-sm text-muted-foreground block">
-                    R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (sem desconto)
+                    R$ {Math.max(0, remainingAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
+                    {remainingAmount <= 0 ? " (Já quitado)" : " (sem desconto)"}
                   </span>
                 </Label>
               </div>
               
-              {discountRate > 0 && (
+              {discountRate > 0 && remainingAmount > 0 && (
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="early_discount" id="early_discount" />
                   <Label htmlFor="early_discount" className="flex-1">
                     Pagamento Antecipado com Desconto
                     <span className="text-sm text-green-600 block">
-                      Pagar R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
+                      Pagar R$ {Math.max(0, remainingAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} 
                       (com {discountRate}% desconto aplicado automaticamente)
                     </span>
                   </Label>
@@ -210,21 +222,36 @@ export function EarlyPaymentDialog({
                 <span>R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Valor Pago:</span>
+                <span className="text-muted-foreground">Valor Pago (Antecipado):</span>
                 <span>R$ {paidAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Valor Pago (Parcelas):</span>
+                <span>R$ {paidFromInstances.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Pago:</span>
+                <span>R$ {totalPaidAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Desconto Obtido:</span>
                 <span className="text-green-600">R$ {discountAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="border-t pt-2 flex justify-between font-medium">
-                <span>Saldo Devedor:</span>
-                <span>R$ {remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                <span>Saldo Devedor Real:</span>
+                <span className={remainingAmount > 0 ? "text-red-600" : "text-green-600"}>
+                  R$ {Math.max(0, remainingAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Parcelas Restantes:</span>
                 <span>{remainingMonths} de {monthsTotal} (Pagas: {paidInstancesCount})</span>
               </div>
+              {remainingAmount <= 0 && (
+                <div className="flex justify-center">
+                  <span className="text-green-600 font-medium">✅ Financiamento Quitado!</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
