@@ -49,12 +49,18 @@ export const useExpenses = () => {
     setLoading(true);
     try {
       if (month) {
-        // Use the database function to get expenses for a specific month
+        // Get the first and last day of the target month
+        const startOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
+        const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+        
         const { data, error } = await supabase
-          .rpc('get_expenses_for_month', {
-            target_month: month.toISOString().split('T')[0],
-            target_user_id: user.id
-          });
+          .from('expenses')
+          .select('*')
+          .eq('user_id', user.id)
+          .or(
+            `and(due_date.gte.${startOfMonth.toISOString().split('T')[0]},due_date.lte.${endOfMonth.toISOString().split('T')[0]}),and(is_recurring.eq.true,due_date.lte.${endOfMonth.toISOString().split('T')[0]})`
+          )
+          .order('due_date', { ascending: false });
 
         if (error) throw error;
         setExpenses(data || []);
