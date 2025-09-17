@@ -178,11 +178,6 @@ export function EarlyPaymentDialog({
         // Make early payment with custom discount
         await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
         
-        // SEMPRE MARCAR A INSTÂNCIA ATUAL COMO PAGA DEPOIS DO PAGAMENTO
-        if (currentInstance) {
-          await toggleInstancePaid(currentInstance);
-        }
-        
         console.log('✅ makeEarlyPayment CONCLUÍDO COM SUCESSO');
       }
       

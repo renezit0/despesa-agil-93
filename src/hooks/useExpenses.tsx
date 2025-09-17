@@ -287,11 +287,6 @@ export const useExpenses = () => {
       if (instance.instance_type === 'normal') {
         // Update the original expense directly
         await updateExpense(instance.expense_id, { is_paid: newPaidStatus });
-      } else if (instance.instance_type === 'financing') {
-        // Para financiamentos, criar transação de pagamento em vez de marcar instância
-        if (newPaidStatus) {
-          await makeEarlyPayment(instance.expense_id, instance.amount, 0);
-        }
       } else {
         // Create or update expense instance
         const instanceData = {
