@@ -586,6 +586,9 @@ export const useExpenses = () => {
     });
     
     console.log('✅ TRANSACTION + UPDATE COMPLETED');
+    
+    // Atualizar estado local após pagamento
+    await fetchExpenses();
   };
 
   // Função para resetar todos os pagamentos de um expense

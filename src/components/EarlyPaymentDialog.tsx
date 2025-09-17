@@ -152,10 +152,10 @@ export function EarlyPaymentDialog({
           .from('expense_instances')
           .update({ is_paid: true, paid_at: new Date().toISOString() })
           .eq('id', currentInstance.id);
-          
-        // Regenerar as instâncias para atualizar a interface
-        await generateExpenseInstances(new Date(currentInstance.instance_date));
       }
+      
+      // Regenerar as instâncias para atualizar a interface
+      await generateExpenseInstances(new Date());
       
       console.log('✅ PAGAMENTO CONCLUÍDO');
       
