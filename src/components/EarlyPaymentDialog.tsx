@@ -130,9 +130,16 @@ export function EarlyPaymentDialog({
         // Mark specific instance as paid
         await toggleInstancePaid(currentInstance);
       } else {
-        console.log('Calling makeEarlyPayment with discount:', discountFromCustomAmount);
+        console.log('🚨 CHAMANDO makeEarlyPayment COM DESCONTO:', discountFromCustomAmount);
+        
         // Make early payment with custom discount
-        await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
+        try {
+          await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
+          console.log('✅ makeEarlyPayment CONCLUÍDO COM SUCESSO');
+        } catch (error) {
+          console.error('❌ ERRO NO makeEarlyPayment:', error);
+          throw error;
+        }
       }
       
       setCustomAmount("");

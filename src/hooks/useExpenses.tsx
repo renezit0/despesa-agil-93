@@ -501,10 +501,11 @@ export const useExpenses = () => {
   };
 
   const makeEarlyPayment = async (expenseId: string, paymentAmount: number, customDiscount: number = 0) => {
-    console.log('🔥 makeEarlyPayment RECEBEU:', {
+    console.log('🔥 makeEarlyPayment INICIADA AGORA!', {
       expenseId,
       paymentAmount,
-      customDiscount
+      customDiscount,
+      userExists: !!user
     });
     
     const expense = expenses.find(e => e.id === expenseId);
