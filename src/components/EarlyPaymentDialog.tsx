@@ -138,8 +138,9 @@ export function EarlyPaymentDialog({
     console.log('✅ VALOR VÁLIDO, continuando...');
     setIsLoading(true);
     try {
-      if (paymentType === "installment" && currentInstance) {
-        console.log('📝 PAGAMENTO DE PARCELA INDIVIDUAL');
+      // LÓGICA CORRIGIDA: Se tem desconto personalizado, sempre vai para early payment
+      if (paymentType === "installment" && currentInstance && discountFromCustomAmount === 0) {
+        console.log('📝 PAGAMENTO DE PARCELA INDIVIDUAL (SEM DESCONTO)');
         // Mark specific instance as paid
         await toggleInstancePaid(currentInstance);
       } else {
