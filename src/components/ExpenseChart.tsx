@@ -29,36 +29,43 @@ export function ExpenseChart({ expenses, expenseInstances = [] }: ExpenseChartPr
   const [chartType, setChartType] = useState<"monthly" | "category" | "trend">("monthly");
   const [period, setPeriod] = useState("6"); // months
 
-  // Create a combined dataset including both base expenses and generated instances
+  // Create a more accurate dataset considering financing payments
   const allExpenseData = () => {
     const combined = [];
     
-    // Add base expenses
+    // Add financing expenses with realistic monthly amounts
     expenses.forEach(expense => {
-      combined.push({
-        id: expense.id,
-        title: expense.title,
-        amount: expense.amount,
-        category_id: expense.category_id,
-        due_date: expense.due_date,
-        is_paid: expense.is_paid,
-        is_recurring: expense.is_recurring,
-        is_financing: expense.is_financing
-      });
-    });
-    
-    // Add instances that aren't duplicates (recurring and financing)
-    expenseInstances.forEach(instance => {
-      if (instance.instance_type !== 'normal') {
+      if (expense.is_financing && expense.financing_total_amount && expense.financing_months_total) {
+        // Para financiamentos, calcular valor mensal real
+        const monthlyAmount = expense.financing_total_amount / expense.financing_months_total;
+        const paidMonths = expense.financing_months_paid || 0;
+        
+        // Adicionar apenas os últimos meses relevantes
+        for (let i = 0; i < Math.min(paidMonths + 3, expense.financing_months_total); i++) {
+          const monthDate = new Date(expense.due_date);
+          monthDate.setMonth(monthDate.getMonth() + i);
+          
+          combined.push({
+            id: `${expense.id}-${i}`,
+            title: `${expense.title} - Parcela ${i + 1}`,
+            amount: monthlyAmount,
+            category_id: expense.category_id,
+            due_date: monthDate.toISOString().split('T')[0],
+            is_paid: i < paidMonths,
+            is_financing: true,
+            originalExpense: expense
+          });
+        }
+      } else if (!expense.is_financing) {
+        // Gastos normais
         combined.push({
-          id: instance.id,
-          title: instance.title,
-          amount: instance.amount,
-          category_id: instance.category_id,
-          due_date: instance.due_date,
-          is_paid: instance.is_paid,
-          is_recurring: instance.instance_type === 'recurring',
-          is_financing: instance.instance_type === 'financing'
+          id: expense.id,
+          title: expense.title,
+          amount: expense.amount,
+          category_id: expense.category_id,
+          due_date: expense.due_date,
+          is_paid: expense.is_paid,
+          is_financing: false
         });
       }
     });
@@ -66,15 +73,24 @@ export function ExpenseChart({ expenses, expenseInstances = [] }: ExpenseChartPr
     return combined;
   };
 
-  // Monthly expenses data
+  // Monthly expenses data - only show months with actual data
   const getMonthlyData = () => {
     const allData = allExpenseData();
-    const months = eachMonthOfInterval({
-      start: subMonths(new Date(), parseInt(period) - 1),
-      end: new Date()
+    
+    // Filtrar apenas meses que têm dados reais
+    const monthsWithData = new Set();
+    allData.forEach(expense => {
+      const month = format(startOfMonth(new Date(expense.due_date)), 'yyyy-MM');
+      monthsWithData.add(month);
     });
+    
+    // Se não há dados nos últimos meses, mostrar apenas os meses com dados
+    const relevantMonths = Array.from(monthsWithData)
+      .sort()
+      .slice(-parseInt(period))
+      .map(month => new Date(month + '-01'));
 
-    return months.map(month => {
+    return relevantMonths.map(month => {
       const monthExpenses = allData.filter(expense => {
         const expenseMonth = startOfMonth(new Date(expense.due_date));
         return expenseMonth.getTime() === month.getTime();
@@ -91,10 +107,10 @@ export function ExpenseChart({ expenses, expenseInstances = [] }: ExpenseChartPr
         pending,
         count: monthExpenses.length
       };
-    });
+    }).filter(data => data.total > 0); // Só mostrar meses com gastos
   };
 
-  // Category expenses data
+  // Category expenses data - considerar apenas valores significativos
   const getCategoryData = () => {
     const allData = allExpenseData();
     const categoryTotals = allData.reduce((acc, expense) => {
@@ -105,7 +121,9 @@ export function ExpenseChart({ expenses, expenseInstances = [] }: ExpenseChartPr
 
     return Object.entries(categoryTotals)
       .map(([category, amount]) => ({ category, amount: Number(amount) || 0 }))
-      .sort((a, b) => (b.amount || 0) - (a.amount || 0));
+      .filter(item => item.amount > 50) // Filtrar valores muito pequenos
+      .sort((a, b) => (b.amount || 0) - (a.amount || 0))
+      .slice(0, 8); // Máximo 8 categorias para melhor visualização
   };
 
   // Trend data (paid vs pending over time)
