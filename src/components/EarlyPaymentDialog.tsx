@@ -176,13 +176,8 @@ export function EarlyPaymentDialog({
         console.log('🚨 CHAMANDO makeEarlyPayment COM DESCONTO:', discountFromCustomAmount);
         
         // Make early payment with custom discount
-        try {
-          await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
-          console.log('✅ makeEarlyPayment CONCLUÍDO COM SUCESSO');
-        } catch (error) {
-          console.error('❌ ERRO NO makeEarlyPayment:', error);
-          throw error;
-        }
+        await makeEarlyPayment(expense.id, finalAmount, discountFromCustomAmount);
+        console.log('✅ makeEarlyPayment CONCLUÍDO COM SUCESSO');
       }
       
       setCustomAmount("");

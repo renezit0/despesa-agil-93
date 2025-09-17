@@ -335,8 +335,7 @@ export const useExpenses = () => {
         )
       );
 
-      // Refresh instances to get updated data
-      await generateExpenseInstances(new Date(instance.instance_date));
+      // Note: Removed automatic refresh to prevent duplicate calls
 
       toast({
         title: newPaidStatus ? "Marcado como pago" : "Marcado como não pago",
