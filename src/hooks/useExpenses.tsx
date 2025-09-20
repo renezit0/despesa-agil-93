@@ -351,49 +351,51 @@ export const useExpenses = () => {
           const monthsSinceStart = (targetMonth.getFullYear() - financingStart.getFullYear()) * 12 +
                                    (targetMonth.getMonth() - financingStart.getMonth());
           
-          // ✅ NOVA LÓGICA: Considerar pagamentos parciais
+          // NOVA LÓGICA: Considerar pagamentos parciais
           const isFullyPaid = isFinancingFullyPaid(expense);
           const paidInstallmentsFromPayment = calculatePaidInstallmentsFromPartialPayment(expense);
           
-          console.log(`🏦 Financiamento ${expense.title}:`, {
+          console.log(`Financiamento ${expense.title}:`, {
             isFullyPaid,
             paidInstallmentsFromPayment,
             monthsSinceStart,
             totalMonths: expense.financing_months_total
           });
           
-          // Só mostrar parcelas se não está totalmente pago E está dentro do período E não foi "pago" antecipadamente
+          // Mostrar parcelas se não está totalmente pago E está dentro do período
           if (!isFullyPaid && 
               monthsSinceStart >= 0 && 
               monthsSinceStart < expense.financing_months_total) {
             
             const installmentNumber = monthsSinceStart + 1;
+            const installmentAmount = expense.financing_total_amount / expense.financing_months_total;
+            const monthlyDueDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), financingStart.getDate());
+            const instanceDateStr = format(monthlyDueDate, 'yyyy-MM-dd');
+            const key = `${expense.id}-${instanceDateStr}-financing-${installmentNumber}`;
             
-            // ✅ NOVA LÓGICA: Só mostrar se esta parcela não foi "paga" pelo pagamento antecipado
-            if (installmentNumber > paidInstallmentsFromPayment) {
-              const installmentAmount = expense.financing_total_amount / expense.financing_months_total;
-              const monthlyDueDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), financingStart.getDate());
-              const instanceDateStr = format(monthlyDueDate, 'yyyy-MM-dd');
-              const key = `${expense.id}-${instanceDateStr}-financing-${installmentNumber}`;
-              
-              const existingInstance = instanceMap.get(key);
-              
-              instances.push({
-                id: existingInstance?.id || `financing-${expense.id}-${installmentNumber}`,
-                expense_id: expense.id,
-                title: `${expense.title} - Parcela ${installmentNumber}/${expense.financing_months_total}`,
-                description: expense.description,
-                amount: installmentAmount,
-                category_id: expense.category_id,
-                due_date: instanceDateStr,
-                is_paid: existingInstance?.is_paid || false,
-                instance_type: 'financing',
-                installment_number: installmentNumber,
-                instance_date: instanceDateStr,
-                original_expense: expense,
-              });
-            } else {
-              console.log(`⏭️ Parcela ${installmentNumber} foi "paga" pelo pagamento antecipado`);
+            const existingInstance = instanceMap.get(key);
+            
+            // CORRIGIDO: Sempre mostrar a parcela, mas marcar como paga se foi coberta por pagamento antecipado
+            const isPaidFromPartialPayment = installmentNumber <= paidInstallmentsFromPayment;
+            const finalIsPaid = existingInstance?.is_paid || isPaidFromPartialPayment;
+            
+            instances.push({
+              id: existingInstance?.id || `financing-${expense.id}-${installmentNumber}`,
+              expense_id: expense.id,
+              title: `${expense.title} - Parcela ${installmentNumber}/${expense.financing_months_total}${isPaidFromPartialPayment ? ' (Pago Antecipado)' : ''}`,
+              description: expense.description,
+              amount: installmentAmount,
+              category_id: expense.category_id,
+              due_date: instanceDateStr,
+              is_paid: finalIsPaid,
+              instance_type: 'financing',
+              installment_number: installmentNumber,
+              instance_date: instanceDateStr,
+              original_expense: expense,
+            });
+            
+            if (isPaidFromPartialPayment) {
+              console.log(`Parcela ${installmentNumber} marcada como paga por pagamento antecipado`);
             }
           }
         }
@@ -423,7 +425,7 @@ export const useExpenses = () => {
     }
 
     try {
-      console.log('🏦 Gerando TODAS as instâncias de financiamento para:', expense.title);
+      console.log('Gerando TODAS as instâncias de financiamento para:', expense.title);
       
       // Fetch ALL existing instances for this financing
       const { data: existingInstances, error } = await supabase
@@ -435,7 +437,7 @@ export const useExpenses = () => {
 
       if (error) throw error;
 
-      console.log('🔍 Instâncias existentes no DB:', existingInstances?.length || 0);
+      console.log('Instâncias existentes no DB:', existingInstances?.length || 0);
 
       const instances: ExpenseInstance[] = [];
       const instanceMap = new Map();
@@ -448,11 +450,11 @@ export const useExpenses = () => {
       const financingStart = new Date(expense.due_date);
       const installmentAmount = expense.financing_total_amount / expense.financing_months_total;
       
-      // ✅ CORRIGIDO: Calcular quantas parcelas foram "pagas" antecipadamente
+      // CORRIGIDO: Calcular quantas parcelas foram "pagas" antecipadamente
       const paidInstallmentsFromPayment = calculatePaidInstallmentsFromPartialPayment(expense);
       const isFullyPaid = isFinancingFullyPaid(expense);
 
-      console.log('💰 Status do financiamento:', {
+      console.log('Status do financiamento:', {
         paidInstallmentsFromPayment,
         isFullyPaid,
         totalAmount: expense.financing_total_amount,
@@ -468,7 +470,7 @@ export const useExpenses = () => {
         
         const existingInstance = instanceMap.get(i);
         
-        // ✅ NOVA LÓGICA: Marcar como "pago" se foi coberto pelo pagamento antecipado
+        // NOVA LÓGICA: Marcar como "pago" se foi coberto pelo pagamento antecipado
         let isPaidFromPartialPayment = false;
         if (i <= paidInstallmentsFromPayment) {
           isPaidFromPartialPayment = true;
@@ -492,7 +494,7 @@ export const useExpenses = () => {
         });
       }
 
-      console.log('✅ Instâncias de financiamento geradas:', instances.length);
+      console.log('Instâncias de financiamento geradas:', instances.length);
       return instances;
     } catch (error) {
       console.error('Error generating all financing instances:', error);
@@ -546,7 +548,7 @@ export const useExpenses = () => {
   };
 
   const toggleInstancePaid = async (instance: ExpenseInstance) => {
-    console.log('🔄 Toggle iniciado:', {
+    console.log('Toggle iniciado:', {
       instanceId: instance.id,
       currentStatus: instance.is_paid,
       instanceType: instance.instance_type,
@@ -563,7 +565,7 @@ export const useExpenses = () => {
 
       // 2. CASO 1: Despesa normal sem parcelas - atualizar expense diretamente
       if (instance.instance_type === 'normal' && !instance.installment_number) {
-        console.log('📝 Atualizando expense diretamente (normal sem parcelas)');
+        console.log('Atualizando expense diretamente (normal sem parcelas)');
         await updateExpense(instance.expense_id, { is_paid: newPaidStatus });
         
         toast({
@@ -579,7 +581,7 @@ export const useExpenses = () => {
         instance.id.length > 10; // UUID tem mais de 10 caracteres
 
       if (isExistingInstance) {
-        console.log('💾 Atualizando instância existente no banco');
+        console.log('Atualizando instância existente no banco');
         
         const { error } = await supabase
           .from('expense_instances')
@@ -598,11 +600,11 @@ export const useExpenses = () => {
           throw error;
         }
 
-        console.log('✅ Instância existente atualizada com sucesso');
+        console.log('Instância existente atualizada com sucesso');
       } 
       // 4. CASO 3: Nova instância - verificar se já existe antes de criar
       else {
-        console.log('🆕 Verificando se instância já existe no banco');
+        console.log('Verificando se instância já existe no banco');
         
         // Primeiro, verificar se já existe uma instância similar no banco
         const { data: existingInstances, error: searchError } = await supabase
@@ -619,7 +621,7 @@ export const useExpenses = () => {
         // Se existe uma instância com mesma data e expense_id, usar ela
         if (existingInstances && existingInstances.length > 0) {
           const existingInstance = existingInstances[0];
-          console.log('📋 Instância já existe, atualizando:', existingInstance.id);
+          console.log('Instância já existe, atualizando:', existingInstance.id);
           
           // Atualizar estado local com o ID correto
           setExpenseInstances(prev => prev.map(inst => 
@@ -642,7 +644,7 @@ export const useExpenses = () => {
         } 
         // Caso contrário, criar nova instância
         else {
-          console.log('➕ Criando nova instância');
+          console.log('Criando nova instância');
           
           const instanceData = {
             expense_id: instance.expense_id,
@@ -663,9 +665,9 @@ export const useExpenses = () => {
               inst.id === instance.id ? { ...inst, id: insertedInstance.id } : inst
             ));
             
-            console.log('✅ Nova instância criada com sucesso');
+            console.log('Nova instância criada com sucesso');
           } catch (insertError) {
-            console.error('❌ Falha ao criar nova instância:', insertError);
+            console.error('Falha ao criar nova instância:', insertError);
             // Reverter estado local
             setExpenseInstances(prev => prev.map(inst => 
               inst.id === instance.id ? { ...inst, is_paid: instance.is_paid } : inst
@@ -677,7 +679,7 @@ export const useExpenses = () => {
 
       // 5. Atualizar contagem de parcelas pagas para financiamentos
       if (instance.instance_type === 'financing') {
-        console.log('💰 Atualizando contagem de parcelas pagas para financiamento');
+        console.log('Atualizando contagem de parcelas pagas para financiamento');
         await updateFinancingPaidMonths(instance.expense_id);
       }
 
@@ -690,7 +692,7 @@ export const useExpenses = () => {
       });
 
     } catch (error) {
-      console.error('❌ Erro completo no toggleInstancePaid:', error);
+      console.error('Erro completo no toggleInstancePaid:', error);
       
       // Reverter estado local em caso de erro
       setExpenseInstances(prev => prev.map(inst => 
@@ -1103,7 +1105,7 @@ export const useExpenses = () => {
     getPaymentTransactions,
     calculateTotalPaidWithTransactions,
     resetAllPayments,
-    // ✅ NOVAS FUNÇÕES EXPOSTAS
+    // NOVAS FUNÇÕES EXPOSTAS
     calculatePaidInstallmentsFromPartialPayment,
     isFinancingFullyPaid,
   };
