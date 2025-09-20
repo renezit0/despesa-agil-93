@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -173,18 +174,18 @@ export const useExpenses = () => {
         
         // Normal expenses (non-recurring, non-financing)
         if (!expense.is_recurring && !expense.is_financing) {
-          // Se tem parcelas, mostrar instâncias já criadas
+          // Se tem parcelas, mostrar instâncias já criadas OU gerá-las se não existirem
           if (expense.installments && expense.installments > 1) {
-            // Buscar instâncias já criadas para este expense no mês
             const monthlyInstances = (existingInstances || []).filter(instance => 
               instance.expense_id === expense.id && 
-              instance.instance_type === 'normal'
+              instance.instance_type === 'normal' &&
+              new Date(instance.instance_date).getMonth() === targetMonth.getMonth() &&
+              new Date(instance.instance_date).getFullYear() === targetMonth.getFullYear()
             );
-            
-            monthlyInstances.forEach(instance => {
-              const instanceDate = new Date(instance.instance_date);
-              if (instanceDate.getMonth() === targetMonth.getMonth() && 
-                  instanceDate.getFullYear() === targetMonth.getFullYear()) {
+
+            if (monthlyInstances.length > 0) {
+              // Se já existem instâncias para este mês, adicioná-las
+              monthlyInstances.forEach(instance => {
                 instances.push({
                   id: instance.id,
                   expense_id: expense.id,
@@ -199,8 +200,38 @@ export const useExpenses = () => {
                   instance_date: instance.instance_date,
                   original_expense: expense,
                 });
+              });
+            } else {
+              // Se não existem instâncias para este mês, gerá-las com base na data de vencimento original
+              // e no número de parcelas, se a parcela cair neste mês
+              const originalDueDate = new Date(expense.due_date);
+              for (let i = 1; i <= expense.installments; i++) {
+                const installmentDate = new Date(originalDueDate);
+                installmentDate.setMonth(originalDueDate.getMonth() + (i - 1));
+
+                if (installmentDate.getMonth() === targetMonth.getMonth() && 
+                    installmentDate.getFullYear() === targetMonth.getFullYear()) {
+                  const instanceDateStr = format(installmentDate, 'yyyy-MM-dd');
+                  const key = `${expense.id}-${instanceDateStr}-normal-${i}`;
+                  const existingInstance = instanceMap.get(key);
+
+                  instances.push({
+                    id: existingInstance?.id || `normal-${expense.id}-${i}`,
+                    expense_id: expense.id,
+                    title: `${expense.title} - Parcela ${i}/${expense.installments}`,
+                    description: expense.description,
+                    amount: expense.amount,
+                    category_id: expense.category_id,
+                    due_date: instanceDateStr,
+                    is_paid: existingInstance?.is_paid || false,
+                    instance_type: 'normal',
+                    installment_number: i,
+                    instance_date: instanceDateStr,
+                    original_expense: expense,
+                  });
+                }
               }
-            });
+            }
           } else {
             // Despesa normal sem parcelas
             if (expenseDate.getMonth() === targetMonth.getMonth() && 
@@ -381,7 +412,7 @@ export const useExpenses = () => {
 
       for (let i = 1; i <= totalInstallments; i++) {
         const installmentDate = new Date(startDate);
-        installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+        installmentDate.setMonth(startDate.getMonth() + (i - 1)); // Corrigido para usar startDate consistentemente
         
         installmentInstances.push({
           expense_id: expense.id,
@@ -455,42 +486,33 @@ export const useExpenses = () => {
           
           if (error) throw error;
         }
-
-        // If it's a financing instance, update the original expense's paid months count
-        if (instance.instance_type === 'financing') {
-          await updateFinancingPaidMonths(instance.expense_id);
-        }
       }
 
-      // Update local state immediately
-      setExpenseInstances(prev => 
-        prev.map(inst => 
-          inst.id === instance.id 
-            ? { ...inst, is_paid: newPaidStatus }
-            : inst
-        )
-      );
-
-      // Note: Removed automatic refresh to prevent duplicate calls
+      // Refetch expenses to update UI
+      await fetchExpenses();
+      // Regenerate instances for the current month to reflect changes
+      generateExpenseInstances(new Date()); // Assuming current month is always relevant after a toggle
 
       toast({
-        title: newPaidStatus ? "Marcado como pago" : "Marcado como não pago",
-        description: `${instance.title} - R$ ${instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        title: "Status de pagamento atualizado",
+        description: "O status da instância foi atualizado com sucesso.",
       });
 
     } catch (error) {
-      console.error('Error toggling instance payment:', error);
+      console.error('Error toggling instance paid status:', error);
       toast({
-        title: "Erro ao atualizar",
-        description: "Não foi possível atualizar o status do pagamento.",
+        title: "Erro ao atualizar status",
+        description: "Não foi possível atualizar o status de pagamento.",
         variant: "destructive",
       });
     }
   };
 
   const updateFinancingPaidMonths = async (expenseId: string) => {
+    if (!user) return;
+
     try {
-      // Count paid financing instances for this expense
+      // Fetch all instances for this financing expense that are paid
       const { data: paidInstances, error } = await supabase
         .from('expense_instances')
         .select('id')
@@ -886,3 +908,5 @@ export const useExpenses = () => {
     resetAllPayments,
   };
 };
+
+
