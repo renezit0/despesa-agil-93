@@ -63,15 +63,28 @@ export const useExpenses = () => {
   const [allTimeInstances, setAllTimeInstances] = useState<ExpenseInstance[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Função simplificada para inserir instância
-  const insertInstance = async (instanceData: any) => {
+  // Função corrigida para inserir instância com tipo apropriado
+  const insertInstance = async (instanceData: any, forceType?: string) => {
     console.log('Inserindo instância:', instanceData);
     
-    // Usar sempre o tipo 'normal' para evitar problemas de enum
+    // Determinar o tipo correto baseado no contexto
+    let instanceType = 'normal';
+    
+    if (forceType) {
+      instanceType = forceType;
+    } else if (instanceData.instance_type) {
+      instanceType = instanceData.instance_type;
+    } else if (instanceData.installment_number) {
+      // Se tem número de parcela, pode ser financing ou normal
+      instanceType = 'normal';
+    }
+    
     const dataToInsert = {
       ...instanceData,
-      instance_type: 'normal'
+      instance_type: instanceType
     };
+
+    console.log('Dados finais para inserção:', dataToInsert);
 
     const { data, error } = await supabase
       .from('expense_instances')
@@ -369,6 +382,8 @@ export const useExpenses = () => {
     }
 
     try {
+      console.log('🏦 Gerando instâncias de financiamento para:', expense.title);
+      
       // Fetch ALL existing instances for this financing
       const { data: existingInstances, error } = await supabase
         .from('expense_instances')
@@ -378,6 +393,8 @@ export const useExpenses = () => {
         .order('installment_number');
 
       if (error) throw error;
+
+      console.log('🔍 Instâncias existentes no DB:', existingInstances?.length || 0);
 
       const instances: ExpenseInstance[] = [];
       const instanceMap = new Map();
@@ -414,6 +431,7 @@ export const useExpenses = () => {
         });
       }
 
+      console.log('✅ Instâncias de financiamento geradas:', instances.length);
       return instances;
     } catch (error) {
       console.error('Error generating all financing instances:', error);
@@ -429,6 +447,7 @@ export const useExpenses = () => {
       console.log(`Creating ${totalInstallments} installments for: ${expense.title}`);
       
       const startDate = new Date(expense.due_date);
+      const instanceType = expense.is_financing ? 'financing' : 'normal';
 
       for (let i = 1; i <= totalInstallments; i++) {
         const installmentDate = new Date(startDate);
@@ -444,7 +463,7 @@ export const useExpenses = () => {
         };
 
         try {
-          const insertedInstance = await insertInstance(instanceData);
+          const insertedInstance = await insertInstance(instanceData, instanceType);
           console.log(`Parcela ${i} criada com ID: ${insertedInstance.id}`);
         } catch (instanceError) {
           console.error(`Erro ao criar parcela ${i}:`, instanceError);
@@ -575,7 +594,8 @@ export const useExpenses = () => {
           };
 
           try {
-            const insertedInstance = await insertInstance(instanceData);
+            // Usar o tipo correto baseado na instância
+            const insertedInstance = await insertInstance(instanceData, instance.instance_type);
             
             // Atualizar ID local com o ID real do banco
             setExpenseInstances(prev => prev.map(inst => 
