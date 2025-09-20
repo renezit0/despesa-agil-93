@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -64,6 +63,23 @@ export const useExpenses = () => {
   const [allTimeInstances, setAllTimeInstances] = useState<ExpenseInstance[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Helper function to map instance types to database-expected values
+  const mapInstanceTypeForDB = (instanceType: string, hasInstallments: boolean) => {
+    // Check if it's an installment (normal expense with installment_number)
+    if (instanceType === 'normal' && hasInstallments) {
+      return 'installment'; // Database likely expects 'installment' for installment payments
+    }
+    
+    // Map other types
+    const typeMapping: Record<string, string> = {
+      'normal': 'single',      // Single payment might be expected as 'single'
+      'recurring': 'recurring', // This should be correct
+      'financing': 'financing'  // This should be correct
+    };
+    
+    return typeMapping[instanceType] || instanceType;
+  };
+
   // Função para buscar TODAS as instâncias (para o gráfico) sem resetar
   const fetchAllTimeInstances = async () => {
     if (!user) return;
@@ -99,7 +115,7 @@ export const useExpenses = () => {
       }) || [];
       
         setAllTimeInstances(instancesWithExpense);
-        console.log('🔍 ALL TIME INSTANCES UPDATED:', instancesWithExpense.length);
+        console.log('📊 ALL TIME INSTANCES UPDATED:', instancesWithExpense.length);
       }
       
     } catch (error) {
@@ -140,7 +156,7 @@ export const useExpenses = () => {
     // Evitar múltiplas chamadas simultâneas
     if (loading) return;
 
-    console.log('🔍 GENERATING INSTANCES FOR MONTH:', targetMonth);
+    console.log('📅 GENERATING INSTANCES FOR MONTH:', targetMonth);
 
     try {
       // Fetch existing instances for the target month
@@ -156,7 +172,7 @@ export const useExpenses = () => {
 
       if (error) throw error;
 
-      console.log('🔍 EXISTING INSTANCES FROM DB:', existingInstances?.length || 0);
+      console.log('📋 EXISTING INSTANCES FROM DB:', existingInstances?.length || 0);
       console.log('🔍 INSTANCES DATA:', existingInstances);
 
       const instances: ExpenseInstance[] = [];
@@ -405,7 +421,7 @@ export const useExpenses = () => {
     if (!user) return;
 
     try {
-      console.log(`🔄 Criando ${totalInstallments} parcelas para: ${expense.title}`);
+      console.log(`📄 Criando ${totalInstallments} parcelas para: ${expense.title}`);
       
       const startDate = new Date(expense.due_date);
       const installmentInstances = [];
@@ -418,7 +434,7 @@ export const useExpenses = () => {
           expense_id: expense.id,
           user_id: user.id,
           instance_date: format(installmentDate, 'yyyy-MM-dd'),
-          instance_type: expense.is_financing ? 'financing' : 'normal',
+          instance_type: expense.is_financing ? 'financing' : 'installment',
           installment_number: i,
           amount: expense.amount,
           is_paid: false,
@@ -455,22 +471,34 @@ export const useExpenses = () => {
         // Update the original expense directly for non-installment normal expenses
         await updateExpense(instance.expense_id, { is_paid: newPaidStatus });
       } else {
-        // For installment, recurring, and financing instances, update/create in expense_instances
+        // First, let's check what instance_type values exist in the database
+        const { data: existingInstances } = await supabase
+          .from('expense_instances')
+          .select('instance_type')
+          .limit(5);
+        
+        console.log('Existing instance_type values:', [...new Set(existingInstances?.map(i => i.instance_type))]);
+
+        // Map the instance type to what the database expects
+        const dbInstanceType = mapInstanceTypeForDB(
+          instance.instance_type, 
+          instance.installment_number !== undefined
+        );
+
         const instanceData = {
           expense_id: instance.expense_id,
           user_id: user!.id,
           instance_date: instance.instance_date,
-          // FIX: Use the instance's type directly instead of recalculating
-          instance_type: instance.instance_type,
+          instance_type: dbInstanceType, // Use mapped type
           installment_number: instance.installment_number || null,
           amount: instance.amount,
           is_paid: newPaidStatus,
           paid_at: newPaidStatus ? new Date().toISOString() : null,
         };
 
-        console.log('Creating instance with data:', instanceData); // Debug log
+        console.log('Creating instance with mapped data:', instanceData);
 
-        // Check if this instance already exists in the DB (by its ID, if it's not a generated one)
+        // Check if this instance already exists in the DB
         if (instance.id && !instance.id.startsWith('recurring-') && !instance.id.startsWith('financing-') && !instance.id.startsWith('normal-')) {
           // Update existing instance
           const { error } = await supabase
@@ -483,22 +511,33 @@ export const useExpenses = () => {
           
           if (error) throw error;
         } else {
-          // Validate instance_type before inserting
-          const validInstanceTypes = ['normal', 'recurring', 'financing'];
-          if (!validInstanceTypes.includes(instanceData.instance_type)) {
-            console.error('Invalid instance_type:', instanceData.instance_type);
-            throw new Error(`Invalid instance_type: ${instanceData.instance_type}`);
+          // Try different instance_type values if the first one fails
+          const possibleTypes = ['installment', 'single', 'recurring', 'financing', 'monthly', 'normal'];
+          let insertSuccess = false;
+          let lastError = null;
+
+          for (const testType of possibleTypes) {
+            try {
+              const testData = { ...instanceData, instance_type: testType };
+              const { error } = await supabase
+                .from('expense_instances')
+                .insert(testData);
+              
+              if (!error) {
+                console.log(`✅ Successfully inserted with instance_type: ${testType}`);
+                insertSuccess = true;
+                break;
+              }
+              lastError = error;
+            } catch (testError) {
+              lastError = testError;
+              continue;
+            }
           }
 
-          // Create new instance if it's a generated one
-          const { error } = await supabase
-            .from('expense_instances')
-            .insert(instanceData);
-          
-          if (error) {
-            console.error('Database insert error:', error);
-            console.error('Failed data:', instanceData);
-            throw error;
+          if (!insertSuccess) {
+            console.error('All instance_type values failed. Last error:', lastError);
+            throw lastError;
           }
         }
       }
@@ -506,7 +545,7 @@ export const useExpenses = () => {
       // Refetch expenses to update UI
       await fetchExpenses();
       // Regenerate instances for the current month to reflect changes
-      generateExpenseInstances(new Date()); // Assuming current month is always relevant after a toggle
+      generateExpenseInstances(new Date());
 
       // Update financing paid months if it's a financing instance
       if (instance.instance_type === 'financing') {
@@ -544,7 +583,7 @@ export const useExpenses = () => {
 
       const paidMonthsCount = paidInstances?.length || 0;
       
-      console.log(`🔄 Atualizando parcelas pagas para expense ${expenseId}: ${paidMonthsCount}`);
+      console.log(`📄 Atualizando parcelas pagas para expense ${expenseId}: ${paidMonthsCount}`);
 
       // Update the expense with the new paid months count directly
       const { error: updateError } = await supabase
@@ -572,7 +611,7 @@ export const useExpenses = () => {
     if (!user) return;
 
     try {
-      console.log('🔄 Adicionando despesa:', expenseData);
+      console.log('📄 Adicionando despesa:', expenseData);
       
       const { data, error } = await supabase
         .from('expenses')
@@ -610,7 +649,7 @@ export const useExpenses = () => {
 
       // Se for uma despesa parcelada, criar as instâncias automaticamente
       if (data.installments && data.installments > 1) {
-        console.log(`🔄 Criando ${data.installments} parcelas para: ${data.title}`);
+        console.log(`📄 Criando ${data.installments} parcelas para: ${data.title}`);
         try {
           await generateInstallmentInstances(data, data.installments);
           console.log('✅ Parcelas criadas com sucesso!');
@@ -928,5 +967,3 @@ export const useExpenses = () => {
     resetAllPayments,
   };
 };
-
-
