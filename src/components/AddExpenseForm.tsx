@@ -148,7 +148,9 @@ export function AddExpenseForm() {
         title: "Sucesso!",
         description: formData.expenseType === "financing" 
           ? "Financiamento adicionado com sucesso!" 
-          : "Gasto adicionado com sucesso.",
+          : formData.isInstallment 
+            ? `Gasto parcelado criado com sucesso! ${formData.installments} parcelas foram geradas automaticamente.`
+            : "Gasto adicionado com sucesso.",
       });
     } catch (error) {
       console.error('Error adding expense:', error);

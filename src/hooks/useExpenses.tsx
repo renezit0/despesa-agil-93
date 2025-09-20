@@ -170,21 +170,52 @@ export const useExpenses = () => {
         
         // Normal expenses (non-recurring, non-financing)
         if (!expense.is_recurring && !expense.is_financing) {
-          if (expenseDate.getMonth() === targetMonth.getMonth() && 
-              expenseDate.getFullYear() === targetMonth.getFullYear()) {
-            instances.push({
-              id: expense.id,
-              expense_id: expense.id,
-              title: expense.title,
-              description: expense.description,
-              amount: expense.amount,
-              category_id: expense.category_id,
-              due_date: expense.due_date,
-              is_paid: expense.is_paid,
-              instance_type: 'normal',
-              instance_date: expense.due_date,
-              original_expense: expense,
+          // Se tem parcelas, mostrar instâncias já criadas
+          if (expense.installments && expense.installments > 1) {
+            // Buscar instâncias já criadas para este expense no mês
+            const monthlyInstances = (existingInstances || []).filter(instance => 
+              instance.expense_id === expense.id && 
+              instance.instance_type === 'normal'
+            );
+            
+            monthlyInstances.forEach(instance => {
+              const instanceDate = new Date(instance.instance_date);
+              if (instanceDate.getMonth() === targetMonth.getMonth() && 
+                  instanceDate.getFullYear() === targetMonth.getFullYear()) {
+                instances.push({
+                  id: instance.id,
+                  expense_id: expense.id,
+                  title: `${expense.title} - Parcela ${instance.installment_number}/${expense.installments}`,
+                  description: expense.description,
+                  amount: expense.amount,
+                  category_id: expense.category_id,
+                  due_date: instance.instance_date,
+                  is_paid: instance.is_paid,
+                  instance_type: 'normal',
+                  installment_number: instance.installment_number,
+                  instance_date: instance.instance_date,
+                  original_expense: expense,
+                });
+              }
             });
+          } else {
+            // Despesa normal sem parcelas
+            if (expenseDate.getMonth() === targetMonth.getMonth() && 
+                expenseDate.getFullYear() === targetMonth.getFullYear()) {
+              instances.push({
+                id: expense.id,
+                expense_id: expense.id,
+                title: expense.title,
+                description: expense.description,
+                amount: expense.amount,
+                category_id: expense.category_id,
+                due_date: expense.due_date,
+                is_paid: expense.is_paid,
+                instance_type: 'normal',
+                instance_date: expense.due_date,
+                original_expense: expense,
+              });
+            }
           }
         }
 
@@ -335,6 +366,43 @@ export const useExpenses = () => {
     }
   };
 
+  // Generate installment instances automatically when creating a installment expense
+  const generateInstallmentInstances = async (expense: Expense, totalInstallments: number) => {
+    if (!user) return;
+
+    try {
+      const startDate = new Date(expense.due_date);
+      const installmentInstances = [];
+
+      for (let i = 1; i <= totalInstallments; i++) {
+        const installmentDate = new Date(startDate);
+        installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+        
+        installmentInstances.push({
+          expense_id: expense.id,
+          user_id: user.id,
+          instance_date: format(installmentDate, 'yyyy-MM-dd'),
+          instance_type: 'normal',
+          installment_number: i,
+          amount: expense.amount,
+          is_paid: false,
+        });
+      }
+
+      const { error } = await supabase
+        .from('expense_instances')
+        .insert(installmentInstances);
+
+      if (error) throw error;
+
+      console.log(`✅ Criadas ${totalInstallments} parcelas para: ${expense.title}`);
+      
+    } catch (error) {
+      console.error('Error generating installment instances:', error);
+      throw error;
+    }
+  };
+
   const fetchExpensesForMonth = async (month: Date) => {
     await fetchExpenses();
     // This will be called after expenses are loaded via useEffect
@@ -475,6 +543,11 @@ export const useExpenses = () => {
         .single();
 
       if (error) throw error;
+
+      // Se for uma despesa parcelada, criar as instâncias automaticamente
+      if (expenseData.installments && expenseData.installments > 1) {
+        await generateInstallmentInstances(data, expenseData.installments);
+      }
 
       setExpenses(prev => [...prev, data]);
       toast({
