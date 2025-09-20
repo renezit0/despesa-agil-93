@@ -460,7 +460,7 @@ export const useExpenses = () => {
           expense_id: instance.expense_id,
           user_id: user!.id,
           instance_date: instance.instance_date,
-          instance_type: instance.instance_type,
+          instance_type: instance.original_expense.is_financing ? 'financing' : (instance.original_expense.is_recurring ? 'recurring' : 'normal'),
           installment_number: instance.installment_number || null,
           amount: instance.amount,
           is_paid: newPaidStatus,
