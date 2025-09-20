@@ -14,7 +14,7 @@ import { EarlyPaymentDialog } from "@/components/EarlyPaymentDialog";
 
 export default function ExpenseInstances() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
-  const [showAllPending, setShowAllPending] = useState(false);
+  const [viewMode, setViewMode] = useState<"month" | "pending">("month");
   const [earlyPaymentDialogOpen, setEarlyPaymentDialogOpen] = useState(false);
   const [selectedFinancing, setSelectedFinancing] = useState(null);
   const [selectedInstance, setSelectedInstance] = useState(null);
@@ -30,10 +30,8 @@ export default function ExpenseInstances() {
 
   // Generate instances when component mounts or month changes
   useEffect(() => {
-    if (!showAllPending) {
-      generateExpenseInstances(currentMonth);
-    }
-  }, [currentMonth, generateExpenseInstances, showAllPending]);
+    generateExpenseInstances(currentMonth);
+  }, [currentMonth, generateExpenseInstances]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     const newMonth = direction === 'prev' 
@@ -42,14 +40,38 @@ export default function ExpenseInstances() {
     setCurrentMonth(newMonth);
   };
 
-  // Get instances to display based on toggle
-  const instancesToShow = showAllPending 
-    ? allTimeInstances.filter(instance => !instance.is_paid) // Todas as parcelas pendentes
-    : expenseInstances.filter(instance => {
+  // Get instances to display based on view mode
+  const getInstancesToShow = () => {
+    if (viewMode === "pending") {
+      // Mostrar TODAS as parcelas pendentes de allTimeInstances
+      return allTimeInstances.filter(instance => !instance.is_paid);
+    } else {
+      // Mostrar instâncias do mês atual + parcelas pendentes
+      const monthInstances = expenseInstances.filter(instance => {
         const instanceDate = new Date(instance.instance_date);
         return instanceDate.getMonth() === currentMonth.getMonth() && 
                instanceDate.getFullYear() === currentMonth.getFullYear();
       });
+      
+      // Adicionar parcelas pendentes que não estão no mês atual
+      const pendingFromOtherMonths = allTimeInstances.filter(instance => {
+        const instanceDate = new Date(instance.instance_date);
+        const isDifferentMonth = instanceDate.getMonth() !== currentMonth.getMonth() || 
+                                instanceDate.getFullYear() !== currentMonth.getFullYear();
+        return !instance.is_paid && isDifferentMonth && instance.installment_number;
+      });
+      
+      // Combinar e remover duplicatas
+      const combined = [...monthInstances, ...pendingFromOtherMonths];
+      const unique = combined.filter((instance, index, self) => 
+        index === self.findIndex(i => i.id === instance.id)
+      );
+      
+      return unique;
+    }
+  };
+
+  const instancesToShow = getInstancesToShow();
 
   // Calculate totals
   const totalAmount = instancesToShow.reduce((sum, instance) => sum + instance.amount, 0);
@@ -73,65 +95,58 @@ export default function ExpenseInstances() {
       <Card>
         <CardHeader>
           <div className="flex flex-col space-y-4">
-            {/* Toggle para ver todas as parcelas pendentes */}
+            {/* Toggle para modo de visualização */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="show-all-pending"
-                  checked={showAllPending}
-                  onCheckedChange={setShowAllPending}
-                />
-                <Label htmlFor="show-all-pending" className="text-sm font-medium">
-                  Ver todas as parcelas pendentes
-                </Label>
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant={viewMode === "month" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("month")}
+                >
+                  Mês Atual
+                </Button>
+                <Button
+                  variant={viewMode === "pending" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("pending")}
+                >
+                  Todas Pendentes
+                </Button>
               </div>
               <Badge variant="outline" className="text-xs">
-                {showAllPending ? 'Todas pendentes' : 'Mês atual'}
+                {viewMode === "pending" ? 'Todas pendentes' : 'Mês + pendentes'}
               </Badge>
             </div>
 
-            {/* Month Navigation - only show when not viewing all pending */}
-            {!showAllPending && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateMonth('prev')}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <div className="text-center">
-                    <CardTitle className="text-xl">
-                      {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {loading ? 'Carregando...' : `${instancesToShow.length} ${instancesToShow.length === 1 ? 'gasto' : 'gastos'}`}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateMonth('next')}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+            {/* Month Navigation - sempre visível */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateMonth('prev')}
+                  disabled={viewMode === "pending"}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="text-center">
+                  <CardTitle className="text-xl">
+                    {viewMode === "pending" ? "Todas as Parcelas Pendentes" : format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {loading ? 'Carregando...' : `${instancesToShow.length} ${instancesToShow.length === 1 ? 'gasto' : 'gastos'}`}
+                  </p>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateMonth('next')}
+                  disabled={viewMode === "pending"}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            )}
-
-            {/* Title for all pending view */}
-            {showAllPending && (
-              <div className="text-center">
-                <CardTitle className="text-xl flex items-center justify-center space-x-2">
-                  <Eye className="h-5 w-5" />
-                  <span>Todas as Parcelas Pendentes</span>
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {loading ? 'Carregando...' : `${instancesToShow.length} ${instancesToShow.length === 1 ? 'parcela pendente' : 'parcelas pendentes'}`}
-                </p>
-              </div>
-            )}
+            </div>
           </div>
         </CardHeader>
       </Card>
@@ -144,7 +159,7 @@ export default function ExpenseInstances() {
               <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs sm:text-sm font-medium truncate">
-                  {showAllPending ? 'Total Pendente' : 'Total do Mês'}
+                  {viewMode === "pending" ? 'Total Pendente' : 'Total'}
                 </p>
                 <p className="text-lg sm:text-2xl font-bold truncate">R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
@@ -182,7 +197,9 @@ export default function ExpenseInstances() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Calendar className="h-5 w-5" />
-            <span>{showAllPending ? 'Todas as Parcelas Pendentes' : 'Gastos do Mês'}</span>
+            <span>
+              {viewMode === "pending" ? 'Todas as Parcelas Pendentes' : 'Gastos do Mês + Parcelas Pendentes'}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -190,12 +207,12 @@ export default function ExpenseInstances() {
             <div className="text-center py-8">
               <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">
-                {showAllPending ? 'Nenhuma parcela pendente' : 'Nenhum gasto neste mês'}
+                {viewMode === "pending" ? 'Nenhuma parcela pendente' : 'Nenhum gasto'}
               </h3>
               <p className="text-muted-foreground">
-                {showAllPending 
+                {viewMode === "pending" 
                   ? 'Parabéns! Você não tem parcelas pendentes.'
-                  : `Não há gastos programados para ${format(currentMonth, "MMMM yyyy", { locale: ptBR })}.`
+                  : `Não há gastos para exibir.`
                 }
               </p>
             </div>
@@ -239,11 +256,9 @@ export default function ExpenseInstances() {
                         )}
                         <p className="text-xs text-muted-foreground">
                           Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
-                          {showAllPending && (
-                            <span className="ml-2">
-                              • {format(new Date(instance.due_date), "MMMM yyyy", { locale: ptBR })}
-                            </span>
-                          )}
+                          <span className="ml-2">
+                            • {format(new Date(instance.due_date), "MMMM yyyy", { locale: ptBR })}
+                          </span>
                         </p>
                       </div>
                     </div>
