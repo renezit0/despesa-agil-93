@@ -162,22 +162,46 @@ const ManageExpenses = () => {
     return allTimeInstances.filter(instance => instance.expense_id === expenseId);
   };
 
-  // Get expense type badge
+  // Get expense type badge and count info
   const getExpenseTypeBadge = (expense: Expense) => {
     if (expense.is_financing) {
-      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Financiamento</Badge>;
+      const totalMonths = expense.financing_months_total || 0;
+      return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+        Financiamento ({totalMonths} parcelas)
+      </Badge>;
     }
     if (expense.is_recurring) {
       return <Badge variant="secondary">Recorrente</Badge>;
     }
     if (expense.installments && expense.installments > 1) {
-      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Parcelado ({expense.installments}x)</Badge>;
+      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        Parcelado ({expense.installments}x)
+      </Badge>;
     }
     return <Badge variant="default">Normal</Badge>;
   };
 
-  // Get expense status
+  // Get expense status with correct logic for financing
   const getExpenseStatus = (expense: Expense) => {
+    if (expense.is_financing) {
+      // Para financiamentos, usar a lógica específica
+      const totalAmount = expense.financing_total_amount || 0;
+      const paidAmount = expense.financing_paid_amount || 0;
+      const discountAmount = expense.financing_discount_amount || 0;
+      const remainingAmount = totalAmount - paidAmount - discountAmount;
+      
+      if (remainingAmount <= 0) {
+        return 'Pago';
+      }
+      
+      const paidMonths = expense.financing_months_paid || 0;
+      const totalMonths = expense.financing_months_total || 0;
+      
+      if (paidMonths === 0) return 'Pendente';
+      return `${paidMonths}/${totalMonths} Pagas`;
+    }
+    
+    // Para gastos normais, usar a lógica de instâncias
     const instances = getExpenseInstances(expense.id);
     if (instances.length === 0) {
       return expense.is_paid ? 'Pago' : 'Pendente';
@@ -462,8 +486,14 @@ const ManageExpenses = () => {
                           
                           <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                             <span>Vencimento: {format(new Date(expense.due_date), "dd/MM/yyyy", { locale: ptBR })}</span>
-                            {hasInstances && (
+                            {expense.is_financing && expense.financing_months_total && (
+                              <span>• {expense.financing_months_total} parcelas (Financiamento)</span>
+                            )}
+                            {!expense.is_financing && hasInstances && (
                               <span>• {instances.length} {instances.length === 1 ? 'parcela' : 'parcelas'}</span>
+                            )}
+                            {expense.is_recurring && (
+                              <span>• Recorrente</span>
                             )}
                           </div>
                         </div>
