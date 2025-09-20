@@ -34,7 +34,6 @@ const ManageExpenses = () => {
   const { toast } = useToast();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [totalsPaid, setTotalsPaid] = useState<Record<string, number>>({});
   const [expandedExpenses, setExpandedExpenses] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState({
@@ -198,6 +197,22 @@ const ManageExpenses = () => {
     return 'secondary';
   };
 
+  // Handle instance toggle with better error handling
+  const handleToggleInstance = async (instance) => {
+    try {
+      console.log('🔄 ManageExpenses: Toggling instance:', {
+        id: instance.id,
+        title: instance.title,
+        currentStatus: instance.is_paid
+      });
+      
+      await toggleInstancePaid(instance);
+      console.log('✅ ManageExpenses: Toggle completed successfully');
+    } catch (error) {
+      console.error('❌ ManageExpenses: Error in toggle:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
       <div className="container mx-auto px-4 py-6 space-y-6">
@@ -228,7 +243,160 @@ const ManageExpenses = () => {
                 Novo Gasto
               </Button>
             </DialogTrigger>
-            {/* Dialog content would go here - keeping original form */}
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingExpense ? 'Editar Gasto' : 'Novo Gasto'}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Título *</Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Valor *</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="due_date">Data de Vencimento *</Label>
+                  <Input
+                    id="due_date"
+                    type="date"
+                    value={formData.due_date}
+                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="is_recurring"
+                      checked={formData.is_recurring}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_recurring: checked })}
+                    />
+                    <Label htmlFor="is_recurring">Gasto recorrente</Label>
+                  </div>
+
+                  {formData.is_recurring && (
+                    <div className="space-y-2">
+                      <Label htmlFor="recurring_start_date">Data de início da recorrência</Label>
+                      <Input
+                        id="recurring_start_date"
+                        type="date"
+                        value={formData.recurring_start_date}
+                        onChange={(e) => setFormData({ ...formData, recurring_start_date: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="is_financing"
+                      checked={formData.is_financing}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_financing: checked })}
+                    />
+                    <Label htmlFor="is_financing">É financiamento</Label>
+                  </div>
+
+                  {formData.is_financing && (
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="financing_total_amount">Valor total</Label>
+                        <Input
+                          id="financing_total_amount"
+                          type="number"
+                          step="0.01"
+                          value={formData.financing_total_amount}
+                          onChange={(e) => setFormData({ ...formData, financing_total_amount: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="financing_months_total">Total de meses</Label>
+                        <Input
+                          id="financing_months_total"
+                          type="number"
+                          value={formData.financing_months_total}
+                          onChange={(e) => setFormData({ ...formData, financing_months_total: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="early_payment_discount_rate">Taxa desconto (%)</Label>
+                        <Input
+                          id="early_payment_discount_rate"
+                          type="number"
+                          step="0.1"
+                          value={formData.early_payment_discount_rate}
+                          onChange={(e) => setFormData({ ...formData, early_payment_discount_rate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {!formData.is_financing && (
+                    <div className="space-y-2">
+                      <Label htmlFor="installments">Número de parcelas (opcional)</Label>
+                      <Input
+                        id="installments"
+                        type="number"
+                        min="1"
+                        value={formData.installments}
+                        onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
+                        placeholder="1 para pagamento único"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Observações</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button type="submit" className="flex-1">
+                    {editingExpense ? 'Atualizar' : 'Criar'} Gasto
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
           </Dialog>
         </div>
 
@@ -253,8 +421,11 @@ const ManageExpenses = () => {
               const isExpanded = expandedExpenses.has(expense.id);
               const hasInstances = instances.length > 0;
 
+              // Create unique key to force re-render when needed
+              const expenseKey = `${expense.id}-${status}-${instances.length}`;
+
               return (
-                <Card key={expense.id} className="overflow-hidden">
+                <Card key={expenseKey} className="overflow-hidden">
                   <div className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3 flex-1">
@@ -335,37 +506,44 @@ const ManageExpenses = () => {
                       <div className="mt-4 pt-4 border-t">
                         <h4 className="font-medium mb-3">Parcelas:</h4>
                         <div className="space-y-2">
-                          {instances.map((instance) => (
-                            <div
-                              key={instance.id}
-                              className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <input
-                                  type="checkbox"
-                                  checked={instance.is_paid}
-                                  onChange={() => toggleInstancePaid(instance)}
-                                  className="rounded"
-                                />
-                                <div>
-                                  <p className="font-medium text-sm">{instance.title}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
-                                  </p>
+                          {instances.map((instance) => {
+                            // Force re-render with unique key
+                            const instanceKey = `${instance.id}-${instance.is_paid}-${instance.amount}`;
+                            
+                            return (
+                              <div
+                                key={instanceKey}
+                                className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={instance.is_paid}
+                                    onChange={() => handleToggleInstance(instance)}
+                                    className="rounded"
+                                  />
+                                  <div>
+                                    <p className={`font-medium text-sm ${instance.is_paid ? 'line-through text-gray-500' : ''}`}>
+                                      {instance.title}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className={`font-medium ${instance.is_paid ? 'text-green-600' : ''}`}>
+                                    R$ {instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                  {instance.is_paid && (
+                                    <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
+                                      Pago
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="font-medium">
-                                  R$ {instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </span>
-                                {instance.is_paid && (
-                                  <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
-                                    Pago
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
