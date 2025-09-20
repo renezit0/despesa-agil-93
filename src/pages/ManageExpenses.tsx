@@ -204,24 +204,46 @@ const ManageExpenses = () => {
     return <Badge variant="default">Normal</Badge>;
   };
 
-  // Get expense status with correct logic for financing
+  // Get expense status with correct logic for financing and partial payments
   const getExpenseStatus = (expense: Expense) => {
     if (expense.is_financing) {
-      // Para financiamentos, usar a lógica específica
+      // Para financiamentos, usar a lógica específica com pagamentos parciais
       const totalAmount = expense.financing_total_amount || 0;
       const paidAmount = expense.financing_paid_amount || 0;
       const discountAmount = expense.financing_discount_amount || 0;
-      const remainingAmount = totalAmount - paidAmount - discountAmount;
+      const totalMonths = expense.financing_months_total || 0;
       
-      if (remainingAmount <= 0) {
+      // Calcular se está totalmente pago
+      const isFullyPaid = (paidAmount + discountAmount) >= totalAmount;
+      
+      if (isFullyPaid) {
         return 'Pago';
       }
       
-      const paidMonths = expense.financing_months_paid || 0;
-      const totalMonths = expense.financing_months_total || 0;
+      // Calcular quantas parcelas foram "pagas" via pagamento antecipado
+      const monthlyAmount = totalAmount / totalMonths;
+      const paidInstallmentsFromPayment = Math.floor((paidAmount + discountAmount) / monthlyAmount);
       
-      if (paidMonths === 0) return 'Pendente';
-      return `${paidMonths}/${totalMonths} Pagas`;
+      // Contar parcelas pagas individualmente
+      const paidInstances = allTimeInstances.filter(instance => 
+        instance.expense_id === expense.id && 
+        instance.instance_type === 'financing' && 
+        instance.is_paid
+      ).length;
+      
+      const totalPaidInstallments = paidInstallmentsFromPayment + paidInstances;
+      
+      if (totalPaidInstallments === 0) {
+        return 'Pendente';
+      }
+      
+      // Se há pagamento antecipado, mostrar status especial
+      if (paidAmount > 0 || discountAmount > 0) {
+        const remainingAmount = totalAmount - paidAmount - discountAmount;
+        return `${totalPaidInstallments}/${totalMonths} + R$ ${(paidAmount + discountAmount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} antecipado`;
+      }
+      
+      return `${totalPaidInstallments}/${totalMonths} Pagas`;
     }
     
     // Para gastos normais, usar a lógica de instâncias
