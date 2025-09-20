@@ -46,15 +46,25 @@ export default function ExpenseInstances() {
            instanceDate.getFullYear() === currentMonth.getFullYear();
   });
 
-  // Debug: Filtrar parcelas do allTimeInstances para o mês atual
-  const debugCurrentMonthFromAll = allTimeInstances.filter(instance => {
+  // Debug: Encontrar a despesa "qaa"
+  const qaaExpense = expenses.find(exp => exp.title.toLowerCase().includes('qaa'));
+  
+  // Debug: Encontrar instâncias da despesa qaa em allTimeInstances
+  const qaaInstancesInAll = qaaExpense ? allTimeInstances.filter(instance => 
+    instance.expense_id === qaaExpense.id
+  ) : [];
+
+  // Debug: Encontrar instâncias da despesa qaa em expenseInstances
+  const qaaInstancesInCurrent = qaaExpense ? expenseInstances.filter(instance => 
+    instance.expense_id === qaaExpense.id
+  ) : [];
+
+  // Debug: Todas as instâncias do mês atual em allTimeInstances
+  const allCurrentMonthInstances = allTimeInstances.filter(instance => {
     const instanceDate = new Date(instance.instance_date);
     return instanceDate.getMonth() === currentMonth.getMonth() && 
            instanceDate.getFullYear() === currentMonth.getFullYear();
   });
-
-  // Debug: Encontrar despesas parceladas
-  const installmentExpenses = expenses.filter(exp => exp.installments && exp.installments > 1);
 
   // Calculate totals
   const totalAmount = currentMonthInstances.reduce((sum, instance) => sum + instance.amount, 0);
@@ -74,13 +84,13 @@ export default function ExpenseInstances() {
 
   return (
     <div className="space-y-6">
-      {/* DEBUG INFO */}
+      {/* DEBUG INFO DETALHADO */}
       {showDebug && (
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-red-700">
               <Bug className="h-5 w-5" />
-              <span>Debug Info</span>
+              <span>Debug Detalhado - Despesa QAA</span>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -91,47 +101,69 @@ export default function ExpenseInstances() {
               </Button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <p><strong>Mês selecionado:</strong> {format(currentMonth, "MMMM yyyy", { locale: ptBR })}</p>
-            <p><strong>Total de expenses:</strong> {expenses.length}</p>
-            <p><strong>Despesas parceladas:</strong> {installmentExpenses.length}</p>
-            <p><strong>expenseInstances (do hook):</strong> {expenseInstances.length}</p>
-            <p><strong>currentMonthInstances (filtradas):</strong> {currentMonthInstances.length}</p>
-            <p><strong>allTimeInstances total:</strong> {allTimeInstances.length}</p>
-            <p><strong>allTimeInstances do mês atual:</strong> {debugCurrentMonthFromAll.length}</p>
-            
-            {installmentExpenses.length > 0 && (
-              <div className="mt-4">
-                <p><strong>Despesas parceladas encontradas:</strong></p>
-                {installmentExpenses.map(exp => (
-                  <div key={exp.id} className="ml-4 text-xs">
-                    • {exp.title} - {exp.installments} parcelas - Vencimento: {exp.due_date}
-                  </div>
-                ))}
+          <CardContent className="text-sm space-y-4">
+            <div className="bg-white p-3 rounded border">
+              <p><strong>Mês selecionado:</strong> {format(currentMonth, "MMMM yyyy", { locale: ptBR })}</p>
+              <p><strong>Data atual:</strong> {format(new Date(), "dd/MM/yyyy")}</p>
+            </div>
+
+            {qaaExpense && (
+              <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                <p><strong>🔍 Despesa QAA encontrada:</strong></p>
+                <div className="ml-4 space-y-1">
+                  <p>• ID: {qaaExpense.id}</p>
+                  <p>• Título: {qaaExpense.title}</p>
+                  <p>• Valor: R$ {qaaExpense.amount}</p>
+                  <p>• Vencimento: {qaaExpense.due_date}</p>
+                  <p>• Parcelas: {qaaExpense.installments}</p>
+                  <p>• É parcelada: {qaaExpense.installments && qaaExpense.installments > 1 ? 'SIM' : 'NÃO'}</p>
+                  <p>• É recorrente: {qaaExpense.is_recurring ? 'SIM' : 'NÃO'}</p>
+                  <p>• É financiamento: {qaaExpense.is_financing ? 'SIM' : 'NÃO'}</p>
+                </div>
               </div>
             )}
-            
-            {debugCurrentMonthFromAll.length > 0 && (
-              <div className="mt-4">
-                <p><strong>Instâncias do mês atual (de allTimeInstances):</strong></p>
-                {debugCurrentMonthFromAll.map(instance => (
-                  <div key={instance.id} className="ml-4 text-xs">
-                    • {instance.title} - {instance.instance_date} - Parcela {instance.installment_number}
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {currentMonthInstances.length > 0 && (
-              <div className="mt-4">
-                <p><strong>Instâncias do mês atual (de expenseInstances):</strong></p>
-                {currentMonthInstances.map(instance => (
-                  <div key={instance.id} className="ml-4 text-xs">
-                    • {instance.title} - {instance.instance_date} - Parcela {instance.installment_number}
-                  </div>
-                ))}
-              </div>
-            )}
+
+            <div className="bg-green-50 p-3 rounded border border-green-200">
+              <p><strong>📊 Instâncias da QAA em allTimeInstances:</strong> {qaaInstancesInAll.length}</p>
+              {qaaInstancesInAll.map((instance, idx) => (
+                <div key={instance.id} className="ml-4 text-xs">
+                  {idx + 1}. {instance.title} - {instance.instance_date} - Parcela {instance.installment_number} - Tipo: {instance.instance_type}
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
+              <p><strong>📊 Instâncias da QAA em expenseInstances:</strong> {qaaInstancesInCurrent.length}</p>
+              {qaaInstancesInCurrent.map((instance, idx) => (
+                <div key={instance.id} className="ml-4 text-xs">
+                  {idx + 1}. {instance.title} - {instance.instance_date} - Parcela {instance.installment_number} - Tipo: {instance.instance_type}
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-purple-50 p-3 rounded border border-purple-200">
+              <p><strong>📅 TODAS as instâncias do mês atual (allTimeInstances):</strong> {allCurrentMonthInstances.length}</p>
+              {allCurrentMonthInstances.map((instance, idx) => (
+                <div key={instance.id} className="ml-4 text-xs">
+                  {idx + 1}. {instance.title} - {instance.instance_date} - ExpenseID: {instance.expense_id} - Tipo: {instance.instance_type}
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-orange-50 p-3 rounded border border-orange-200">
+              <p><strong>📅 Instâncias em expenseInstances (processadas):</strong> {expenseInstances.length}</p>
+              {expenseInstances.slice(0, 5).map((instance, idx) => (
+                <div key={instance.id} className="ml-4 text-xs">
+                  {idx + 1}. {instance.title} - {instance.instance_date} - ExpenseID: {instance.expense_id} - Tipo: {instance.instance_type}
+                </div>
+              ))}
+              {expenseInstances.length > 5 && <p className="ml-4 text-xs">... e mais {expenseInstances.length - 5}</p>}
+            </div>
+
+            <div className="bg-red-50 p-3 rounded border border-red-200">
+              <p><strong>❗ PROBLEMA:</strong></p>
+              <p>Se a QAA tem parcelas em allTimeInstances mas não em expenseInstances, então a função generateExpenseInstances não está processando elas corretamente.</p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -233,11 +265,6 @@ export default function ExpenseInstances() {
               <p className="text-muted-foreground">
                 Não há gastos programados para {format(currentMonth, "MMMM yyyy", { locale: ptBR })}.
               </p>
-              {debugCurrentMonthFromAll.length > 0 && (
-                <p className="text-red-600 mt-2">
-                  ⚠️ Mas existem {debugCurrentMonthFromAll.length} instâncias em allTimeInstances!
-                </p>
-              )}
             </div>
           ) : (
             <div className="space-y-4">
