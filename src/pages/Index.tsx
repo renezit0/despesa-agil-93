@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle, Wallet, TrendingDown, Calendar, CheckCircle, LogOut, User, Users } from "lucide-react";
 import { isBefore } from "date-fns";
 import gastoseellIcon from "@/assets/gastoseell-icon.png";
+
 const Index = () => {
   const {
     user,
@@ -43,15 +44,18 @@ const Index = () => {
       navigate("/auth");
     }
   }, [user, loading, navigate]);
+
   const handleTogglePaid = async (id: string) => {
     const instance = expenseInstances.find(e => e.id === id);
     if (instance) {
       await toggleInstancePaid(instance);
     }
   };
+
   const handleDeleteExpense = async (id: string) => {
     await deleteExpense(id);
   };
+
   const handleMonthChange = async (month: Date) => {
     await generateExpenseInstances(month);
   };
@@ -61,6 +65,7 @@ const Index = () => {
   const paidExpenses = expenseInstances.filter(e => e.is_paid).reduce((sum, instance) => sum + instance.amount, 0);
   const pendingExpenses = totalExpenses - paidExpenses;
   const overdueExpenses = expenseInstances.filter(e => !e.is_paid && isBefore(new Date(e.due_date), new Date())).reduce((sum, instance) => sum + instance.amount, 0);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -69,15 +74,20 @@ const Index = () => {
       console.error("Error signing out:", error);
     }
   };
+
   if (loading || expensesLoading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground">Carregando...</p>
         </div>
-      </div>;
+      </div>
+    );
   }
-  return <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 animate-fade-in">
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 animate-fade-in">
       {/* Header - Mobile Optimized */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 sm:py-4">
@@ -88,7 +98,6 @@ const Index = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg sm:text-xl lg:text-3xl bg-gradient-to-r from-primary to-primary/70 bg-clip-text truncate text-slate-950 font-thin">seeLL</h1>
-                
               </div>
             </div>
 
@@ -115,40 +124,72 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
-        {/* Summary Cards - Mobile Responsive */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <FinancialSummaryCard title="Total de Gastos" amount={totalExpenses} icon="balance" trend={expenseInstances.length > 0 ? {
-          value: 12.5,
-          isPositive: false
-        } : undefined} />
-          <FinancialSummaryCard title="Valores Pagos" amount={paidExpenses} icon="income" trend={expenseInstances.length > 0 ? {
-          value: 8.2,
-          isPositive: true
-        } : undefined} />
-          <FinancialSummaryCard title="Pendentes" amount={pendingExpenses} icon="expense" trend={expenseInstances.length > 0 ? {
-          value: 5.1,
-          isPositive: false
-        } : undefined} />
-          <FinancialSummaryCard title="Em Atraso" amount={overdueExpenses} icon="expense" trend={expenseInstances.length > 0 ? {
-          value: 2.3,
-          isPositive: false
-        } : undefined} />
+        
+        {/* PRIORIDADE 1: GASTOS DO MÊS - Movido para o topo */}
+        <section>
+          <ExpenseInstances />
         </section>
 
-        {/* Charts and Analysis - Mobile Responsive */}
-        <section className="grid gap-6 sm:gap-8 lg:grid-cols-2">
-          <ExpenseChart expenses={expenses} expenseInstances={allTimeInstances} />
-          <QuickStats expenses={expenses} />
+        {/* PRIORIDADE 2: FORMULÁRIO RÁPIDO - Para adicionar gastos facilmente */}
+        <section className="lg:max-w-md">
+          <AddExpenseForm />
         </section>
 
-        {/* Expense Management - Mobile Responsive */}
-        <section className="grid gap-6 sm:gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-1">
-            <AddExpenseForm />
+        {/* PRIORIDADE 3: RESUMO FINANCEIRO - Cards de resumo */}
+        <section>
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold">Resumo Geral</h2>
+            <p className="text-sm text-muted-foreground">Visão geral das suas finanças</p>
           </div>
-          
-          <div className="lg:col-span-2">
-            <ExpenseInstances />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <FinancialSummaryCard 
+              title="Total de Gastos" 
+              amount={totalExpenses} 
+              icon="balance" 
+              trend={expenseInstances.length > 0 ? {
+                value: 12.5,
+                isPositive: false
+              } : undefined} 
+            />
+            <FinancialSummaryCard 
+              title="Valores Pagos" 
+              amount={paidExpenses} 
+              icon="income" 
+              trend={expenseInstances.length > 0 ? {
+                value: 8.2,
+                isPositive: true
+              } : undefined} 
+            />
+            <FinancialSummaryCard 
+              title="Pendentes" 
+              amount={pendingExpenses} 
+              icon="expense" 
+              trend={expenseInstances.length > 0 ? {
+                value: 5.1,
+                isPositive: false
+              } : undefined} 
+            />
+            <FinancialSummaryCard 
+              title="Em Atraso" 
+              amount={overdueExpenses} 
+              icon="expense" 
+              trend={expenseInstances.length > 0 ? {
+                value: 2.3,
+                isPositive: false
+              } : undefined} 
+            />
+          </div>
+        </section>
+
+        {/* PRIORIDADE 4: ANÁLISES E GRÁFICOS - Para consulta */}
+        <section>
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold">Análises e Relatórios</h2>
+            <p className="text-sm text-muted-foreground">Dados e tendências dos seus gastos</p>
+          </div>
+          <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
+            <ExpenseChart expenses={expenses} expenseInstances={allTimeInstances} />
+            <QuickStats expenses={expenses} />
           </div>
         </section>
 
@@ -166,6 +207,8 @@ const Index = () => {
           </div>
         </section>
       </main>
-    </div>;
+    </div>
+  );
 };
+
 export default Index;
