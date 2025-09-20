@@ -6,18 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Calendar, CreditCard } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, DollarSign, Calendar, CreditCard, Eye } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { EarlyPaymentDialog } from "@/components/EarlyPaymentDialog";
 
 export default function ExpenseInstances() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
+  const [showAllPending, setShowAllPending] = useState(false);
   const [earlyPaymentDialogOpen, setEarlyPaymentDialogOpen] = useState(false);
   const [selectedFinancing, setSelectedFinancing] = useState(null);
   const [selectedInstance, setSelectedInstance] = useState(null);
   const [financingInstances, setFinancingInstances] = useState([]);
   const { 
     expenseInstances, 
+    allTimeInstances,
     generateExpenseInstances, 
     generateAllFinancingInstances,
     toggleInstancePaid,
@@ -26,8 +30,10 @@ export default function ExpenseInstances() {
 
   // Generate instances when component mounts or month changes
   useEffect(() => {
-    generateExpenseInstances(currentMonth);
-  }, [currentMonth, generateExpenseInstances]);
+    if (!showAllPending) {
+      generateExpenseInstances(currentMonth);
+    }
+  }, [currentMonth, generateExpenseInstances, showAllPending]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     const newMonth = direction === 'prev' 
@@ -36,16 +42,18 @@ export default function ExpenseInstances() {
     setCurrentMonth(newMonth);
   };
 
-  // Filter instances for current month
-  const currentMonthInstances = expenseInstances.filter(instance => {
-    const instanceDate = new Date(instance.instance_date);
-    return instanceDate.getMonth() === currentMonth.getMonth() && 
-           instanceDate.getFullYear() === currentMonth.getFullYear();
-  });
+  // Get instances to display based on toggle
+  const instancesToShow = showAllPending 
+    ? allTimeInstances.filter(instance => !instance.is_paid) // Todas as parcelas pendentes
+    : expenseInstances.filter(instance => {
+        const instanceDate = new Date(instance.instance_date);
+        return instanceDate.getMonth() === currentMonth.getMonth() && 
+               instanceDate.getFullYear() === currentMonth.getFullYear();
+      });
 
   // Calculate totals
-  const totalAmount = currentMonthInstances.reduce((sum, instance) => sum + instance.amount, 0);
-  const paidAmount = currentMonthInstances.filter(e => e.is_paid).reduce((sum, instance) => sum + instance.amount, 0);
+  const totalAmount = instancesToShow.reduce((sum, instance) => sum + instance.amount, 0);
+  const paidAmount = instancesToShow.filter(e => e.is_paid).reduce((sum, instance) => sum + instance.amount, 0);
   const pendingAmount = totalAmount - paidAmount;
 
   if (loading) {
@@ -61,34 +69,69 @@ export default function ExpenseInstances() {
 
   return (
     <div className="space-y-6">
-      {/* Month Navigation */}
+      {/* View Toggle and Month Navigation */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth('prev')}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+          <div className="flex flex-col space-y-4">
+            {/* Toggle para ver todas as parcelas pendentes */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-all-pending"
+                  checked={showAllPending}
+                  onCheckedChange={setShowAllPending}
+                />
+                <Label htmlFor="show-all-pending" className="text-sm font-medium">
+                  Ver todas as parcelas pendentes
+                </Label>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {showAllPending ? 'Todas pendentes' : 'Mês atual'}
+              </Badge>
+            </div>
+
+            {/* Month Navigation - only show when not viewing all pending */}
+            {!showAllPending && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateMonth('prev')}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-center">
+                    <CardTitle className="text-xl">
+                      {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {loading ? 'Carregando...' : `${instancesToShow.length} ${instancesToShow.length === 1 ? 'gasto' : 'gastos'}`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateMonth('next')}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Title for all pending view */}
+            {showAllPending && (
               <div className="text-center">
-                <CardTitle className="text-xl">
-                  {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+                <CardTitle className="text-xl flex items-center justify-center space-x-2">
+                  <Eye className="h-5 w-5" />
+                  <span>Todas as Parcelas Pendentes</span>
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {loading ? 'Carregando...' : `${currentMonthInstances.length} ${currentMonthInstances.length === 1 ? 'gasto' : 'gastos'}`}
+                  {loading ? 'Carregando...' : `${instancesToShow.length} ${instancesToShow.length === 1 ? 'parcela pendente' : 'parcelas pendentes'}`}
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth('next')}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            )}
           </div>
         </CardHeader>
       </Card>
@@ -100,7 +143,9 @@ export default function ExpenseInstances() {
             <div className="flex items-center space-x-2 sm:space-x-3">
               <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-medium truncate">Total do Mês</p>
+                <p className="text-xs sm:text-sm font-medium truncate">
+                  {showAllPending ? 'Total Pendente' : 'Total do Mês'}
+                </p>
                 <p className="text-lg sm:text-2xl font-bold truncate">R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
@@ -137,21 +182,26 @@ export default function ExpenseInstances() {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Calendar className="h-5 w-5" />
-            <span>Gastos do Mês</span>
+            <span>{showAllPending ? 'Todas as Parcelas Pendentes' : 'Gastos do Mês'}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {currentMonthInstances.length === 0 && !loading ? (
+          {instancesToShow.length === 0 && !loading ? (
             <div className="text-center py-8">
               <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Nenhum gasto neste mês</h3>
+              <h3 className="text-lg font-medium mb-2">
+                {showAllPending ? 'Nenhuma parcela pendente' : 'Nenhum gasto neste mês'}
+              </h3>
               <p className="text-muted-foreground">
-                Não há gastos programados para {format(currentMonth, "MMMM yyyy", { locale: ptBR })}.
+                {showAllPending 
+                  ? 'Parabéns! Você não tem parcelas pendentes.'
+                  : `Não há gastos programados para ${format(currentMonth, "MMMM yyyy", { locale: ptBR })}.`
+                }
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {currentMonthInstances.map((instance) => (
+              {instancesToShow.map((instance) => (
                 <div key={instance.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -161,7 +211,7 @@ export default function ExpenseInstances() {
                         className="mt-1"
                       />
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-medium">{instance.title}</h4>
                           <Badge 
                             variant={
@@ -173,6 +223,11 @@ export default function ExpenseInstances() {
                             {instance.instance_type === 'normal' ? 'Normal' :
                              instance.instance_type === 'recurring' ? 'Recorrente' : 'Financiamento'}
                           </Badge>
+                          {instance.installment_number && (
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                              Parcela {instance.installment_number}
+                            </Badge>
+                          )}
                           {instance.is_paid && (
                             <Badge variant="outline" className="text-green-600 border-green-600">
                               Pago
@@ -184,11 +239,16 @@ export default function ExpenseInstances() {
                         )}
                         <p className="text-xs text-muted-foreground">
                           Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                          {showAllPending && (
+                            <span className="ml-2">
+                              • {format(new Date(instance.due_date), "MMMM yyyy", { locale: ptBR })}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {instance.instance_type === 'financing' && instance.original_expense.is_financing && (
+                      {instance.instance_type === 'financing' && instance.original_expense?.is_financing && (
                         <Button
                           size="sm"
                           variant="outline"
