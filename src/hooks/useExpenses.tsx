@@ -115,7 +115,7 @@ export const useExpenses = () => {
       }) || [];
       
         setAllTimeInstances(instancesWithExpense);
-        console.log('📊 ALL TIME INSTANCES UPDATED:', instancesWithExpense.length);
+        console.log('All time instances updated:', instancesWithExpense.length);
       }
       
     } catch (error) {
@@ -156,7 +156,7 @@ export const useExpenses = () => {
     // Evitar múltiplas chamadas simultâneas
     if (loading) return;
 
-    console.log('📅 GENERATING INSTANCES FOR MONTH:', targetMonth);
+    console.log('Generating instances for month:', targetMonth);
 
     try {
       // Fetch existing instances for the target month
@@ -172,8 +172,7 @@ export const useExpenses = () => {
 
       if (error) throw error;
 
-      console.log('📋 EXISTING INSTANCES FROM DB:', existingInstances?.length || 0);
-      console.log('🔍 INSTANCES DATA:', existingInstances);
+      console.log('Existing instances from DB:', existingInstances?.length || 0);
 
       const instances: ExpenseInstance[] = [];
       const instanceMap = new Map();
@@ -421,7 +420,7 @@ export const useExpenses = () => {
     if (!user) return;
 
     try {
-      console.log(`📄 Criando ${totalInstallments} parcelas para: ${expense.title}`);
+      console.log(`Creating ${totalInstallments} installments for: ${expense.title}`);
       
       const startDate = new Date(expense.due_date);
       const installmentInstances = [];
@@ -446,11 +445,11 @@ export const useExpenses = () => {
         .insert(installmentInstances);
 
       if (error) {
-        console.error('Erro ao criar parcelas:', error);
+        console.error('Error creating installments:', error);
         throw error;
       }
 
-      console.log(`✅ Criadas ${totalInstallments} parcelas com sucesso!`);
+      console.log(`Successfully created ${totalInstallments} installments!`);
       
     } catch (error) {
       console.error('Error generating installment instances:', error);
@@ -464,6 +463,13 @@ export const useExpenses = () => {
   };
 
   const toggleInstancePaid = async (instance: ExpenseInstance) => {
+    console.log('Toggle started:', {
+      instanceId: instance.id,
+      currentStatus: instance.is_paid,
+      instanceType: instance.instance_type,
+      hasInstallmentNumber: !!instance.installment_number
+    });
+
     try {
       const newPaidStatus = !instance.is_paid;
       
@@ -474,14 +480,46 @@ export const useExpenses = () => {
           : inst
       ));
 
-      if (instance.instance_type === 'normal' && instance.installment_number === undefined) {
-        // Update the original expense directly for non-installment normal expenses
+      // CASO 1: Despesa normal sem parcelas (atualizar expense diretamente)
+      if (instance.instance_type === 'normal' && !instance.installment_number) {
+        console.log('Updating expense directly (normal without installments)');
         await updateExpense(instance.expense_id, { is_paid: newPaidStatus });
-      } else {
-        const dbInstanceType = mapInstanceTypeForDB(
-          instance.instance_type, 
-          instance.installment_number !== undefined
-        );
+        
+        toast({
+          title: "Status atualizado",
+          description: "Status da despesa foi atualizado com sucesso.",
+        });
+        return;
+      }
+
+      // CASO 2: Instância existente no banco (ID real)
+      if (instance.id && !instance.id.startsWith('recurring-') && !instance.id.startsWith('financing-') && !instance.id.startsWith('normal-')) {
+        console.log('Updating existing instance in database');
+        
+        const { error } = await supabase
+          .from('expense_instances')
+          .update({ 
+            is_paid: newPaidStatus,
+            paid_at: newPaidStatus ? new Date().toISOString() : null 
+          })
+          .eq('id', instance.id);
+        
+        if (error) {
+          console.error('Error updating existing instance:', error);
+          throw error;
+        }
+
+        console.log('Existing instance updated successfully');
+      } 
+      // CASO 3: Nova instância (ID gerado)
+      else {
+        console.log('Creating new instance in database');
+        
+        // Determinar o tipo correto para o banco
+        let dbInstanceType = instance.instance_type;
+        if (instance.instance_type === 'normal' && instance.installment_number) {
+          dbInstanceType = 'installment';
+        }
 
         const instanceData = {
           expense_id: instance.expense_id,
@@ -494,97 +532,95 @@ export const useExpenses = () => {
           paid_at: newPaidStatus ? new Date().toISOString() : null,
         };
 
-        console.log('Creating instance with mapped data:', instanceData);
+        console.log('New instance data:', instanceData);
 
-        // Check if this instance already exists in the DB
-        if (instance.id && !instance.id.startsWith('recurring-') && !instance.id.startsWith('financing-') && !instance.id.startsWith('normal-')) {
-          // Update existing instance
-          const { error } = await supabase
-            .from('expense_instances')
-            .update({ 
-              is_paid: newPaidStatus,
-              paid_at: newPaidStatus ? new Date().toISOString() : null 
-            })
-            .eq('id', instance.id);
+        const { data, error } = await supabase
+          .from('expense_instances')
+          .insert(instanceData)
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('Error on first attempt:', error);
           
-          if (error) throw error;
-        } else {
-          // Try different instance_type values if the first one fails
-          const possibleTypes = ['installment', 'single', 'recurring', 'financing', 'monthly', 'normal'];
-          let insertSuccess = false;
-          let lastError = null;
-          let newInstanceId = null;
-
-          for (const testType of possibleTypes) {
-            try {
-              const testData = { ...instanceData, instance_type: testType };
-              const { data, error } = await supabase
-                .from('expense_instances')
-                .insert(testData)
-                .select()
-                .single();
-              
-              if (!error && data) {
-                console.log(`✅ Successfully inserted with instance_type: ${testType}`);
-                newInstanceId = data.id;
-                insertSuccess = true;
-                break;
-              }
-              lastError = error;
-            } catch (testError) {
-              lastError = testError;
-              continue;
+          // Se falhou, tentar com 'single' para despesas normais
+          if (dbInstanceType === 'normal') {
+            console.log('Retrying with type "single"');
+            
+            const retryData = { ...instanceData, instance_type: 'single' };
+            const { data: retryResult, error: retryError } = await supabase
+              .from('expense_instances')
+              .insert(retryData)
+              .select()
+              .single();
+            
+            if (retryError) {
+              console.error('Error on second attempt:', retryError);
+              throw retryError;
             }
+            
+            // Atualizar o ID da instância com o ID real
+            if (retryResult) {
+              setExpenseInstances(prev => prev.map(inst => 
+                inst.id === instance.id 
+                  ? { ...inst, id: retryResult.id }
+                  : inst
+              ));
+            }
+            
+            console.log('New instance created successfully (type: single)');
+          } else {
+            throw error;
           }
-
-          if (!insertSuccess) {
-            console.error('All instance_type values failed. Last error:', lastError);
-            // Reverter o estado local em caso de erro
+        } else {
+          // Sucesso na primeira tentativa
+          if (data) {
             setExpenseInstances(prev => prev.map(inst => 
               inst.id === instance.id 
-                ? { ...inst, is_paid: !newPaidStatus }
-                : inst
-            ));
-            throw lastError;
-          }
-
-          // Se uma nova instância foi criada, atualizar o ID local
-          if (newInstanceId) {
-            setExpenseInstances(prev => prev.map(inst => 
-              inst.id === instance.id 
-                ? { ...inst, id: newInstanceId, is_paid: newPaidStatus }
+                ? { ...inst, id: data.id }
                 : inst
             ));
           }
+          console.log('New instance created successfully (first attempt)');
         }
       }
 
-      // Update financing paid months if it's a financing instance
+      // Atualizar contagem de parcelas pagas para financiamentos
       if (instance.instance_type === 'financing') {
+        console.log('Updating financing paid months count');
         await updateFinancingPaidMonths(instance.expense_id);
       }
 
-      // Refetch expenses to ensure consistency (mas não regenerar instâncias)
+      // Refetch expenses sem regenerar instâncias
       await fetchExpenses();
 
       toast({
-        title: "Status de pagamento atualizado",
-        description: "O status da instância foi atualizado com sucesso.",
+        title: "Status atualizado",
+        description: "Status da instância foi atualizado com sucesso.",
       });
 
     } catch (error) {
-      console.error('Error toggling instance paid status:', error);
+      console.error('Complete error in toggleInstancePaid:', error);
       
       // Reverter o estado local em caso de erro
       setExpenseInstances(prev => prev.map(inst => 
         inst.id === instance.id 
-          ? { ...inst, is_paid: !instance.is_paid }
+          ? { ...inst, is_paid: instance.is_paid } // Voltar ao estado original
           : inst
       ));
 
+      // Mostrar detalhes do erro
+      const errorMessage = error?.message || 'Erro desconhecido';
+      console.error('Error details:', {
+        message: errorMessage,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint
+      });
+
       toast({
         title: "Erro ao atualizar status",
-        description: "Não foi possível atualizar o status de pagamento.",
+        description: `Não foi possível atualizar: ${errorMessage}`,
         variant: "destructive",
       });
     }
@@ -606,7 +642,7 @@ export const useExpenses = () => {
 
       const paidMonthsCount = paidInstances?.length || 0;
       
-      console.log(`📄 Atualizando parcelas pagas para expense ${expenseId}: ${paidMonthsCount}`);
+      console.log(`Updating paid months for expense ${expenseId}: ${paidMonthsCount}`);
 
       // Update the expense with the new paid months count directly
       const { error: updateError } = await supabase
@@ -634,7 +670,7 @@ export const useExpenses = () => {
     if (!user) return;
 
     try {
-      console.log('📄 Adicionando despesa:', expenseData);
+      console.log('Adding expense:', expenseData);
       
       const { data, error } = await supabase
         .from('expenses')
@@ -664,20 +700,20 @@ export const useExpenses = () => {
         .single();
 
       if (error) {
-        console.error('❌ Erro ao inserir despesa:', error);
+        console.error('Error inserting expense:', error);
         throw error;
       }
 
-      console.log('✅ Despesa criada com sucesso:', data);
+      console.log('Expense created successfully:', data);
 
       // Se for uma despesa parcelada, criar as instâncias automaticamente
       if (data.installments && data.installments > 1) {
-        console.log(`📄 Criando ${data.installments} parcelas para: ${data.title}`);
+        console.log(`Creating ${data.installments} installments for: ${data.title}`);
         try {
           await generateInstallmentInstances(data, data.installments);
-          console.log('✅ Parcelas criadas com sucesso!');
+          console.log('Installments created successfully!');
         } catch (installmentError) {
-          console.error('❌ Erro ao criar parcelas:', installmentError);
+          console.error('Error creating installments:', installmentError);
           // Não falhar a criação da despesa se as parcelas falharam
           toast({
             title: "Atenção",
@@ -786,7 +822,7 @@ export const useExpenses = () => {
   };
 
   const makeEarlyPayment = async (expenseId: string, paymentAmount: number, customDiscount: number = 0) => {
-    console.log('🔥 makeEarlyPayment INICIADA AGORA!', {
+    console.log('makeEarlyPayment started:', {
       expenseId,
       paymentAmount,
       customDiscount,
@@ -807,10 +843,10 @@ export const useExpenses = () => {
     // LÓGICA CORRIGIDA: Qualquer valor menor que o devido É desconto
     let newDiscountAmount = discountAmount + customDiscount;
     
-    console.log('🎯 CÁLCULO DO DESCONTO:', {
-      'descontoAnterior': discountAmount,
-      'descontoPersonalizado': customDiscount,
-      'novoDescontoTotal': newDiscountAmount
+    console.log('Discount calculation:', {
+      'previousDiscount': discountAmount,
+      'customDiscount': customDiscount,
+      'newTotalDiscount': newDiscountAmount
     });
     
     // Se tem taxa de desconto E está pagando o valor total, aplica a taxa também
@@ -824,7 +860,7 @@ export const useExpenses = () => {
     const isFullyPaid = newPaidAmount >= totalAfterDiscount;
 
     console.log('=== UPDATING EXPENSE ===');
-    console.log('🔥 PAYLOAD FINAL:', {
+    console.log('Final payload:', {
       financing_paid_amount: newPaidAmount,
       financing_discount_amount: newDiscountAmount,
       is_paid: isFullyPaid,
@@ -832,7 +868,7 @@ export const useExpenses = () => {
     });
 
     // 1. PRIMEIRO: Registrar a transação de pagamento
-    console.log('💾 INSERINDO TRANSAÇÃO NO DB:', {
+    console.log('Inserting transaction in DB:', {
       expense_id: expenseId,
       user_id: user?.id,
       payment_amount: paymentAmount,
@@ -853,13 +889,13 @@ export const useExpenses = () => {
       })
       .select();
 
-    console.log('💾 RESULTADO DA INSERÇÃO:', {
+    console.log('Transaction insert result:', {
       data: transactionData,
       error: transactionError
     });
 
     if (transactionError) {
-      console.error('❌ ERRO AO REGISTRAR TRANSAÇÃO:', transactionError);
+      console.error('Error inserting transaction:', transactionError);
       throw transactionError;
     }
 
@@ -871,7 +907,7 @@ export const useExpenses = () => {
       paid_at: isFullyPaid ? new Date().toISOString() : undefined,
     });
     
-    console.log('✅ TRANSACTION + UPDATE COMPLETED');
+    console.log('Transaction and update completed');
     
     // Atualizar estado local após pagamento
     await fetchExpenses();
