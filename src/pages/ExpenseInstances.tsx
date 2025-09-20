@@ -12,11 +12,12 @@ import { EarlyPaymentDialog } from "@/components/EarlyPaymentDialog";
 
 export default function ExpenseInstances() {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
-  const [showDebug, setShowDebug] = useState(true);
+  const [showDebug, setShowDebug] = useState(false); // Começar oculto
   const [earlyPaymentDialogOpen, setEarlyPaymentDialogOpen] = useState(false);
   const [selectedFinancing, setSelectedFinancing] = useState(null);
   const [selectedInstance, setSelectedInstance] = useState(null);
   const [financingInstances, setFinancingInstances] = useState([]);
+  
   const { 
     expenseInstances, 
     allTimeInstances,
@@ -30,7 +31,7 @@ export default function ExpenseInstances() {
   // Generate instances when component mounts or month changes
   useEffect(() => {
     generateExpenseInstances(currentMonth);
-  }, [currentMonth, generateExpenseInstances]);
+  }, [currentMonth]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     const newMonth = direction === 'prev' 
@@ -46,30 +47,27 @@ export default function ExpenseInstances() {
            instanceDate.getFullYear() === currentMonth.getFullYear();
   });
 
-  // Debug: Encontrar a despesa "qaa"
-  const qaaExpense = expenses.find(exp => exp.title.toLowerCase().includes('qaa'));
-  
-  // Debug: Encontrar instâncias da despesa qaa em allTimeInstances
-  const qaaInstancesInAll = qaaExpense ? allTimeInstances.filter(instance => 
-    instance.expense_id === qaaExpense.id
-  ) : [];
-
-  // Debug: Encontrar instâncias da despesa qaa em expenseInstances
-  const qaaInstancesInCurrent = qaaExpense ? expenseInstances.filter(instance => 
-    instance.expense_id === qaaExpense.id
-  ) : [];
-
-  // Debug: Todas as instâncias do mês atual em allTimeInstances
-  const allCurrentMonthInstances = allTimeInstances.filter(instance => {
-    const instanceDate = new Date(instance.instance_date);
-    return instanceDate.getMonth() === currentMonth.getMonth() && 
-           instanceDate.getFullYear() === currentMonth.getFullYear();
-  });
-
   // Calculate totals
   const totalAmount = currentMonthInstances.reduce((sum, instance) => sum + instance.amount, 0);
   const paidAmount = currentMonthInstances.filter(e => e.is_paid).reduce((sum, instance) => sum + instance.amount, 0);
   const pendingAmount = totalAmount - paidAmount;
+
+  // Handle checkbox toggle with better error handling
+  const handleToggleInstancePaid = async (instance) => {
+    try {
+      console.log('🔄 Checkbox clicked for instance:', {
+        id: instance.id,
+        title: instance.title,
+        current_status: instance.is_paid,
+        will_become: !instance.is_paid
+      });
+      
+      await toggleInstancePaid(instance);
+      console.log('✅ Toggle completed successfully');
+    } catch (error) {
+      console.error('❌ Error in checkbox toggle:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -84,13 +82,13 @@ export default function ExpenseInstances() {
 
   return (
     <div className="space-y-6">
-      {/* DEBUG INFO DETALHADO */}
+      {/* DEBUG INFO DETALHADO - Agora oculto por padrão */}
       {showDebug && (
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-red-700">
               <Bug className="h-5 w-5" />
-              <span>Debug Detalhado - Despesa QAA</span>
+              <span>Debug Info</span>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -104,65 +102,19 @@ export default function ExpenseInstances() {
           <CardContent className="text-sm space-y-4">
             <div className="bg-white p-3 rounded border">
               <p><strong>Mês selecionado:</strong> {format(currentMonth, "MMMM yyyy", { locale: ptBR })}</p>
-              <p><strong>Data atual:</strong> {format(new Date(), "dd/MM/yyyy")}</p>
+              <p><strong>Total de instâncias:</strong> {expenseInstances.length}</p>
+              <p><strong>Instâncias do mês atual:</strong> {currentMonthInstances.length}</p>
+              <p><strong>All time instances:</strong> {allTimeInstances.length}</p>
             </div>
 
-            {qaaExpense && (
-              <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                <p><strong>🔍 Despesa QAA encontrada:</strong></p>
-                <div className="ml-4 space-y-1">
-                  <p>• ID: {qaaExpense.id}</p>
-                  <p>• Título: {qaaExpense.title}</p>
-                  <p>• Valor: R$ {qaaExpense.amount}</p>
-                  <p>• Vencimento: {qaaExpense.due_date}</p>
-                  <p>• Parcelas: {qaaExpense.installments}</p>
-                  <p>• É parcelada: {qaaExpense.installments && qaaExpense.installments > 1 ? 'SIM' : 'NÃO'}</p>
-                  <p>• É recorrente: {qaaExpense.is_recurring ? 'SIM' : 'NÃO'}</p>
-                  <p>• É financiamento: {qaaExpense.is_financing ? 'SIM' : 'NÃO'}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-green-50 p-3 rounded border border-green-200">
-              <p><strong>📊 Instâncias da QAA em allTimeInstances:</strong> {qaaInstancesInAll.length}</p>
-              {qaaInstancesInAll.map((instance, idx) => (
+            <div className="bg-blue-50 p-3 rounded border border-blue-200">
+              <p><strong>Instâncias do mês atual:</strong></p>
+              {currentMonthInstances.slice(0, 3).map((instance, idx) => (
                 <div key={instance.id} className="ml-4 text-xs">
-                  {idx + 1}. {instance.title} - {instance.instance_date} - Parcela {instance.installment_number} - Tipo: {instance.instance_type}
+                  {idx + 1}. {instance.title} - {instance.is_paid ? 'PAGO' : 'PENDENTE'} - ID: {instance.id}
                 </div>
               ))}
-            </div>
-
-            <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
-              <p><strong>📊 Instâncias da QAA em expenseInstances:</strong> {qaaInstancesInCurrent.length}</p>
-              {qaaInstancesInCurrent.map((instance, idx) => (
-                <div key={instance.id} className="ml-4 text-xs">
-                  {idx + 1}. {instance.title} - {instance.instance_date} - Parcela {instance.installment_number} - Tipo: {instance.instance_type}
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-purple-50 p-3 rounded border border-purple-200">
-              <p><strong>📅 TODAS as instâncias do mês atual (allTimeInstances):</strong> {allCurrentMonthInstances.length}</p>
-              {allCurrentMonthInstances.map((instance, idx) => (
-                <div key={instance.id} className="ml-4 text-xs">
-                  {idx + 1}. {instance.title} - {instance.instance_date} - ExpenseID: {instance.expense_id} - Tipo: {instance.instance_type}
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-orange-50 p-3 rounded border border-orange-200">
-              <p><strong>📅 Instâncias em expenseInstances (processadas):</strong> {expenseInstances.length}</p>
-              {expenseInstances.slice(0, 5).map((instance, idx) => (
-                <div key={instance.id} className="ml-4 text-xs">
-                  {idx + 1}. {instance.title} - {instance.instance_date} - ExpenseID: {instance.expense_id} - Tipo: {instance.instance_type}
-                </div>
-              ))}
-              {expenseInstances.length > 5 && <p className="ml-4 text-xs">... e mais {expenseInstances.length - 5}</p>}
-            </div>
-
-            <div className="bg-red-50 p-3 rounded border border-red-200">
-              <p><strong>❗ PROBLEMA:</strong></p>
-              <p>Se a QAA tem parcelas em allTimeInstances mas não em expenseInstances, então a função generateExpenseInstances não está processando elas corretamente.</p>
+              {currentMonthInstances.length > 3 && <p className="ml-4 text-xs">... e mais {currentMonthInstances.length - 3}</p>}
             </div>
           </CardContent>
         </Card>
@@ -268,74 +220,93 @@ export default function ExpenseInstances() {
             </div>
           ) : (
             <div className="space-y-4">
-              {currentMonthInstances.map((instance) => (
-                <div key={instance.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <Checkbox
-                        checked={instance.is_paid}
-                        onCheckedChange={() => toggleInstancePaid(instance)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium">{instance.title}</h4>
-                          <Badge 
-                            variant={
-                              instance.instance_type === 'normal' ? 'default' :
-                              instance.instance_type === 'recurring' ? 'secondary' : 'outline'
-                            }
-                            className="text-xs"
-                          >
-                            {instance.instance_type === 'normal' ? 'Normal' :
-                             instance.instance_type === 'recurring' ? 'Recorrente' : 'Financiamento'}
-                          </Badge>
-                          {instance.installment_number && (
-                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                              Parcela {instance.installment_number}
-                            </Badge>
-                          )}
-                          {instance.is_paid && (
-                            <Badge variant="outline" className="text-green-600 border-green-600">
-                              Pago
-                            </Badge>
+              {currentMonthInstances.map((instance) => {
+                // Force re-render when instance changes by creating a unique key
+                const instanceKey = `${instance.id}-${instance.is_paid}-${instance.amount}`;
+                
+                return (
+                  <div key={instanceKey} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex items-center">
+                          <Checkbox
+                            checked={instance.is_paid}
+                            onCheckedChange={() => handleToggleInstancePaid(instance)}
+                            className="mt-1"
+                          />
+                          {showDebug && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              ({instance.is_paid ? 'CHECKED' : 'UNCHECKED'})
+                            </span>
                           )}
                         </div>
-                        {instance.description && (
-                          <p className="text-sm text-muted-foreground">{instance.description}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
-                        </p>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className={`font-medium ${instance.is_paid ? 'line-through text-gray-500' : ''}`}>
+                              {instance.title}
+                            </h4>
+                            <Badge 
+                              variant={
+                                instance.instance_type === 'normal' ? 'default' :
+                                instance.instance_type === 'recurring' ? 'secondary' : 'outline'
+                              }
+                              className="text-xs"
+                            >
+                              {instance.instance_type === 'normal' ? 'Normal' :
+                               instance.instance_type === 'recurring' ? 'Recorrente' : 'Financiamento'}
+                            </Badge>
+                            {instance.installment_number && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                Parcela {instance.installment_number}
+                              </Badge>
+                            )}
+                            {instance.is_paid && (
+                              <Badge variant="outline" className="text-green-600 border-green-600">
+                                Pago
+                              </Badge>
+                            )}
+                          </div>
+                          {instance.description && (
+                            <p className="text-sm text-muted-foreground">{instance.description}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                          </p>
+                          {showDebug && (
+                            <p className="text-xs text-red-500">
+                              DEBUG: ID={instance.id}, is_paid={instance.is_paid ? 'true' : 'false'}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {instance.instance_type === 'financing' && instance.original_expense?.is_financing && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={async () => {
-                            const financingInstances = await generateAllFinancingInstances(instance.original_expense);
-                            setSelectedFinancing(instance.original_expense);
-                            setFinancingInstances(financingInstances);
-                            setSelectedInstance(instance);
-                            setEarlyPaymentDialogOpen(true);
-                          }}
-                          className="h-8 px-2"
-                        >
-                          <CreditCard className="h-3 w-3 mr-1" />
-                          Pagar
-                        </Button>
-                      )}
-                      <div className="text-right">
-                        <span className="font-semibold text-lg">
-                          R$ {instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        {instance.instance_type === 'financing' && instance.original_expense?.is_financing && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              const financingInstances = await generateAllFinancingInstances(instance.original_expense);
+                              setSelectedFinancing(instance.original_expense);
+                              setFinancingInstances(financingInstances);
+                              setSelectedInstance(instance);
+                              setEarlyPaymentDialogOpen(true);
+                            }}
+                            className="h-8 px-2"
+                          >
+                            <CreditCard className="h-3 w-3 mr-1" />
+                            Pagar
+                          </Button>
+                        )}
+                        <div className="text-right">
+                          <span className={`font-semibold text-lg ${instance.is_paid ? 'text-green-600' : ''}`}>
+                            R$ {instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
