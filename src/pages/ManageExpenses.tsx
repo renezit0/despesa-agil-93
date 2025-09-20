@@ -35,6 +35,7 @@ const ManageExpenses = () => {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [expandedExpenses, setExpandedExpenses] = useState<Set<string>>(new Set());
+  const [financingInstances, setFinancingInstances] = useState<Record<string, any[]>>({});
 
   const [formData, setFormData] = useState({
     title: "",
@@ -147,12 +148,34 @@ const ManageExpenses = () => {
     }
   };
 
-  const toggleExpenseExpansion = (expenseId: string) => {
+  const toggleExpenseExpansion = async (expenseId: string) => {
     const newExpanded = new Set(expandedExpenses);
     if (newExpanded.has(expenseId)) {
       newExpanded.delete(expenseId);
+      // Limpar instâncias de financiamento quando fechar
+      setFinancingInstances(prev => {
+        const updated = { ...prev };
+        delete updated[expenseId];
+        return updated;
+      });
     } else {
       newExpanded.add(expenseId);
+      
+      // Se for financiamento, buscar todas as parcelas
+      const expense = expenses.find(e => e.id === expenseId);
+      if (expense?.is_financing) {
+        try {
+          console.log('🏦 Buscando todas as parcelas do financiamento:', expense.title);
+          const allInstances = await generateAllFinancingInstances(expense);
+          setFinancingInstances(prev => ({
+            ...prev,
+            [expenseId]: allInstances
+          }));
+          console.log('✅ Parcelas carregadas:', allInstances.length);
+        } catch (error) {
+          console.error('Erro ao carregar parcelas do financiamento:', error);
+        }
+      }
     }
     setExpandedExpenses(newExpanded);
   };
@@ -532,48 +555,102 @@ const ManageExpenses = () => {
                     </div>
 
                     {/* Expanded instances view */}
-                    {isExpanded && hasInstances && (
+                    {isExpanded && (
                       <div className="mt-4 pt-4 border-t">
-                        <h4 className="font-medium mb-3">Parcelas:</h4>
+                        <h4 className="font-medium mb-3">
+                          {expense.is_financing ? 'Parcelas do Financiamento:' : 'Parcelas:'}
+                        </h4>
                         <div className="space-y-2">
-                          {instances.map((instance) => {
-                            // Force re-render with unique key
-                            const instanceKey = `${instance.id}-${instance.is_paid}-${instance.amount}`;
-                            
-                            return (
-                              <div
-                                key={instanceKey}
-                                className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                              >
-                                <div className="flex items-center space-x-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={instance.is_paid}
-                                    onChange={() => handleToggleInstance(instance)}
-                                    className="rounded"
-                                  />
-                                  <div>
-                                    <p className={`font-medium text-sm ${instance.is_paid ? 'line-through text-gray-500' : ''}`}>
-                                      {instance.title}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
-                                    </p>
+                          {expense.is_financing ? (
+                            // Para financiamentos, usar as instâncias carregadas
+                            financingInstances[expense.id] ? (
+                              financingInstances[expense.id].map((instance) => {
+                                const instanceKey = `${instance.id}-${instance.is_paid}-${instance.amount}`;
+                                
+                                return (
+                                  <div
+                                    key={instanceKey}
+                                    className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                                  >
+                                    <div className="flex items-center space-x-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={instance.is_paid}
+                                        onChange={() => handleToggleInstance(instance)}
+                                        className="rounded"
+                                      />
+                                      <div>
+                                        <p className={`font-medium text-sm ${instance.is_paid ? 'line-through text-gray-500' : ''}`}>
+                                          {instance.title}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <span className={`font-medium ${instance.is_paid ? 'text-green-600' : ''}`}>
+                                        R$ {instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                      </span>
+                                      {instance.is_paid && (
+                                        <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
+                                          Pago
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="text-center py-4">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                                <p className="text-sm text-muted-foreground">Carregando parcelas...</p>
+                              </div>
+                            )
+                          ) : (
+                            // Para gastos normais, usar as instâncias existentes
+                            hasInstances ? instances.map((instance) => {
+                              const instanceKey = `${instance.id}-${instance.is_paid}-${instance.amount}`;
+                              
+                              return (
+                                <div
+                                  key={instanceKey}
+                                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={instance.is_paid}
+                                      onChange={() => handleToggleInstance(instance)}
+                                      className="rounded"
+                                    />
+                                    <div>
+                                      <p className={`font-medium text-sm ${instance.is_paid ? 'line-through text-gray-500' : ''}`}>
+                                        {instance.title}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        Vencimento: {format(new Date(instance.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className={`font-medium ${instance.is_paid ? 'text-green-600' : ''}`}>
+                                      R$ {instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    {instance.is_paid && (
+                                      <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
+                                        Pago
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className={`font-medium ${instance.is_paid ? 'text-green-600' : ''}`}>
-                                    R$ {instance.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                  </span>
-                                  {instance.is_paid && (
-                                    <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
-                                      Pago
-                                    </Badge>
-                                  )}
-                                </div>
+                              );
+                            }) : (
+                              <div className="text-center py-4">
+                                <p className="text-sm text-muted-foreground">Nenhuma parcela encontrada</p>
                               </div>
-                            );
-                          })}
+                            )
+                          )}
                         </div>
                       </div>
                     )}
