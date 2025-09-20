@@ -101,8 +101,11 @@ export function AddExpenseForm() {
           description: "Por favor, preencha todos os campos obrigatórios.",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
+
+      console.log('📝 Enviando formulário:', formData);
 
       if (formData.expenseType === "financing") {
         // Use addExpense for financing

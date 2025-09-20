@@ -136,6 +136,9 @@ export const useExpenses = () => {
   const generateExpenseInstances = async (targetMonth: Date) => {
     if (!user) return;
 
+    // Evitar múltiplas chamadas simultâneas
+    if (loading) return;
+
     console.log('🔍 GENERATING INSTANCES FOR MONTH:', targetMonth);
 
     try {
@@ -371,6 +374,8 @@ export const useExpenses = () => {
     if (!user) return;
 
     try {
+      console.log(`🔄 Criando ${totalInstallments} parcelas para: ${expense.title}`);
+      
       const startDate = new Date(expense.due_date);
       const installmentInstances = [];
 
@@ -393,9 +398,12 @@ export const useExpenses = () => {
         .from('expense_instances')
         .insert(installmentInstances);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao criar parcelas:', error);
+        throw error;
+      }
 
-      console.log(`✅ Criadas ${totalInstallments} parcelas para: ${expense.title}`);
+      console.log(`✅ Criadas ${totalInstallments} parcelas com sucesso!`);
       
     } catch (error) {
       console.error('Error generating installment instances:', error);
@@ -522,6 +530,8 @@ export const useExpenses = () => {
     if (!user) return;
 
     try {
+      console.log('🔄 Adicionando despesa:', expenseData);
+      
       const { data, error } = await supabase
         .from('expenses')
         .insert({
@@ -537,19 +547,44 @@ export const useExpenses = () => {
           financing_months_paid: expenseData.financing_months_paid || 0,
           early_payment_discount_rate: expenseData.early_payment_discount_rate || 0,
           needs_approval: expenseData.needs_approval || false,
-          ...expenseData,
+          installments: expenseData.installments,
+          current_installment: expenseData.current_installment,
+          description: expenseData.description,
+          recurring_start_date: expenseData.recurring_start_date,
+          financing_total_amount: expenseData.financing_total_amount,
+          financing_months_total: expenseData.financing_months_total,
+          shared_with_user_id: expenseData.shared_with_user_id,
+          notes: expenseData.notes,
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao inserir despesa:', error);
+        throw error;
+      }
+
+      console.log('✅ Despesa criada com sucesso:', data);
 
       // Se for uma despesa parcelada, criar as instâncias automaticamente
       if (expenseData.installments && expenseData.installments > 1) {
-        await generateInstallmentInstances(data, expenseData.installments);
+        console.log(`🔄 Criando ${expenseData.installments} parcelas para: ${data.title}`);
+        try {
+          await generateInstallmentInstances(data, expenseData.installments);
+          console.log('✅ Parcelas criadas com sucesso!');
+        } catch (installmentError) {
+          console.error('❌ Erro ao criar parcelas:', installmentError);
+          // Não falhar a criação da despesa se as parcelas falharam
+          toast({
+            title: "Atenção",
+            description: "Despesa criada, mas houve erro ao gerar as parcelas.",
+            variant: "destructive",
+          });
+        }
       }
 
       setExpenses(prev => [...prev, data]);
+      
       toast({
         title: "Gasto adicionado",
         description: "Gasto foi adicionado com sucesso.",
