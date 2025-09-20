@@ -63,51 +63,29 @@ export const useExpenses = () => {
   const [allTimeInstances, setAllTimeInstances] = useState<ExpenseInstance[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Função robusta para inserir instância com múltiplos fallbacks
-  const insertInstanceWithFallbacks = async (instanceData: any) => {
-    // Lista de todos os tipos possíveis para tentar
-    const typesToTry = [
-      'normal',
-      'single', 
-      'installment',
-      'recurring',
-      'financing',
-      'monthly',
-      'partial',
-      'full'
-    ];
+  // Função simplificada para inserir instância
+  const insertInstance = async (instanceData: any) => {
+    console.log('Inserindo instância:', instanceData);
+    
+    // Usar sempre o tipo 'normal' para evitar problemas de enum
+    const dataToInsert = {
+      ...instanceData,
+      instance_type: 'normal'
+    };
 
-    console.log('Tentando inserir instância com dados:', instanceData);
-
-    for (const instanceType of typesToTry) {
-      try {
-        console.log(`Tentando tipo: ${instanceType}`);
-        
-        const dataToInsert = {
-          ...instanceData,
-          instance_type: instanceType
-        };
-
-        const { data, error } = await supabase
-          .from('expense_instances')
-          .insert(dataToInsert)
-          .select()
-          .single();
-        
-        if (!error && data) {
-          console.log(`✅ SUCESSO com tipo: ${instanceType}`);
-          return data;
-        }
-        
-        console.log(`❌ Falhou com tipo: ${instanceType}`, error?.message);
-      } catch (err) {
-        console.log(`❌ Erro com tipo: ${instanceType}`, err);
-        continue;
-      }
+    const { data, error } = await supabase
+      .from('expense_instances')
+      .insert(dataToInsert)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Erro ao inserir instância:', error);
+      throw error;
     }
-
-    // Se chegou até aqui, todos os tipos falharam
-    throw new Error('Todos os tipos de instância falharam - problema no banco de dados');
+    
+    console.log('✅ Instância inserida com sucesso:', data);
+    return data;
   };
 
   // Função para buscar TODAS as instâncias (para o gráfico) sem resetar
@@ -451,7 +429,6 @@ export const useExpenses = () => {
       console.log(`Creating ${totalInstallments} installments for: ${expense.title}`);
       
       const startDate = new Date(expense.due_date);
-      const installmentInstances = [];
 
       for (let i = 1; i <= totalInstallments; i++) {
         const installmentDate = new Date(startDate);
@@ -466,9 +443,8 @@ export const useExpenses = () => {
           is_paid: false,
         };
 
-        // Usar a função robusta para inserir cada parcela
         try {
-          const insertedInstance = await insertInstanceWithFallbacks(instanceData);
+          const insertedInstance = await insertInstance(instanceData);
           console.log(`Parcela ${i} criada com ID: ${insertedInstance.id}`);
         } catch (instanceError) {
           console.error(`Erro ao criar parcela ${i}:`, instanceError);
@@ -517,8 +493,12 @@ export const useExpenses = () => {
         return;
       }
 
-      // 3. CASO 2: Instância existente no banco - apenas atualizar
-      if (instance.id && !instance.id.includes('-')) {
+      // 3. CASO 2: Instância que já existe no banco (ID é um UUID válido)
+      const isExistingInstance = instance.id && 
+        !instance.id.includes('-') && 
+        instance.id.length > 10; // UUID tem mais de 10 caracteres
+
+      if (isExistingInstance) {
         console.log('💾 Atualizando instância existente no banco');
         
         const { error } = await supabase
@@ -531,37 +511,86 @@ export const useExpenses = () => {
         
         if (error) {
           console.error('Erro ao atualizar instância existente:', error);
+          // Reverter estado local
+          setExpenseInstances(prev => prev.map(inst => 
+            inst.id === instance.id ? { ...inst, is_paid: instance.is_paid } : inst
+          ));
           throw error;
         }
 
         console.log('✅ Instância existente atualizada com sucesso');
       } 
-      // 4. CASO 3: Nova instância - usar função robusta com fallbacks
+      // 4. CASO 3: Nova instância - verificar se já existe antes de criar
       else {
-        console.log('🆕 Criando nova instância no banco com fallbacks');
+        console.log('🆕 Verificando se instância já existe no banco');
         
-        const instanceData = {
-          expense_id: instance.expense_id,
-          user_id: user!.id,
-          instance_date: instance.instance_date,
-          installment_number: instance.installment_number || null,
-          amount: instance.amount,
-          is_paid: newPaidStatus,
-          paid_at: newPaidStatus ? new Date().toISOString() : null,
-        };
+        // Primeiro, verificar se já existe uma instância similar no banco
+        const { data: existingInstances, error: searchError } = await supabase
+          .from('expense_instances')
+          .select('*')
+          .eq('expense_id', instance.expense_id)
+          .eq('instance_date', instance.instance_date);
 
-        try {
-          const insertedInstance = await insertInstanceWithFallbacks(instanceData);
+        if (searchError) {
+          console.error('Erro ao buscar instâncias existentes:', searchError);
+          throw searchError;
+        }
+
+        // Se existe uma instância com mesma data e expense_id, usar ela
+        if (existingInstances && existingInstances.length > 0) {
+          const existingInstance = existingInstances[0];
+          console.log('📋 Instância já existe, atualizando:', existingInstance.id);
           
-          // Atualizar ID local com o ID real do banco
+          // Atualizar estado local com o ID correto
           setExpenseInstances(prev => prev.map(inst => 
-            inst.id === instance.id ? { ...inst, id: insertedInstance.id } : inst
+            inst.id === instance.id ? { 
+              ...inst, 
+              id: existingInstance.id,
+              is_paid: newPaidStatus 
+            } : inst
           ));
           
-          console.log('✅ Nova instância criada com sucesso');
-        } catch (insertError) {
-          console.error('❌ Falha ao criar nova instância:', insertError);
-          throw insertError;
+          const { error: updateError } = await supabase
+            .from('expense_instances')
+            .update({ 
+              is_paid: newPaidStatus,
+              paid_at: newPaidStatus ? new Date().toISOString() : null 
+            })
+            .eq('id', existingInstance.id);
+          
+          if (updateError) throw updateError;
+        } 
+        // Caso contrário, criar nova instância
+        else {
+          console.log('➕ Criando nova instância');
+          
+          const instanceData = {
+            expense_id: instance.expense_id,
+            user_id: user!.id,
+            instance_date: instance.instance_date,
+            installment_number: instance.installment_number || null,
+            amount: instance.amount,
+            is_paid: newPaidStatus,
+            paid_at: newPaidStatus ? new Date().toISOString() : null,
+          };
+
+          try {
+            const insertedInstance = await insertInstance(instanceData);
+            
+            // Atualizar ID local com o ID real do banco
+            setExpenseInstances(prev => prev.map(inst => 
+              inst.id === instance.id ? { ...inst, id: insertedInstance.id } : inst
+            ));
+            
+            console.log('✅ Nova instância criada com sucesso');
+          } catch (insertError) {
+            console.error('❌ Falha ao criar nova instância:', insertError);
+            // Reverter estado local
+            setExpenseInstances(prev => prev.map(inst => 
+              inst.id === instance.id ? { ...inst, is_paid: instance.is_paid } : inst
+            ));
+            throw insertError;
+          }
         }
       }
 
