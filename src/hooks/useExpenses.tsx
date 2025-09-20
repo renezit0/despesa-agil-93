@@ -70,11 +70,25 @@ export const useExpenses = () => {
     const totalAmount = expense.financing_total_amount || 0;
     const paidAmount = expense.financing_paid_amount || 0;
     const discountAmount = expense.financing_discount_amount || 0;
+    
+    // CORREÇÃO: Só considerar como "pago antecipado" se há realmente pagamento registrado
+    if (paidAmount === 0 && discountAmount === 0) {
+      return 0; // Sem pagamento antecipado
+    }
+    
     const monthlyAmount = totalAmount / (expense.financing_months_total || 1);
     
     // Calcular quantas parcelas foram "pagas" com o pagamento antecipado
-    const effectivePaidAmount = paidAmount + discountAmount;
-    const paidInstallmentsFromPayment = Math.floor(effectivePaidAmount / monthlyAmount);
+    // Usar apenas o valor efetivamente pago (não incluir desconto no cálculo de parcelas)
+    const paidInstallmentsFromPayment = Math.floor(paidAmount / monthlyAmount);
+    
+    console.log('Cálculo de parcelas pagas:', {
+      totalAmount,
+      paidAmount, 
+      discountAmount,
+      monthlyAmount,
+      paidInstallmentsFromPayment
+    });
     
     return paidInstallmentsFromPayment;
   };
