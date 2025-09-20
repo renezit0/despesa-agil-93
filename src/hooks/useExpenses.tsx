@@ -63,6 +63,33 @@ export const useExpenses = () => {
   const [allTimeInstances, setAllTimeInstances] = useState<ExpenseInstance[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Função para calcular quantas parcelas já foram "pagas" via pagamento antecipado
+  const calculatePaidInstallmentsFromPartialPayment = (expense: Expense) => {
+    if (!expense.is_financing) return 0;
+    
+    const totalAmount = expense.financing_total_amount || 0;
+    const paidAmount = expense.financing_paid_amount || 0;
+    const discountAmount = expense.financing_discount_amount || 0;
+    const monthlyAmount = totalAmount / (expense.financing_months_total || 1);
+    
+    // Calcular quantas parcelas foram "pagas" com o pagamento antecipado
+    const effectivePaidAmount = paidAmount + discountAmount;
+    const paidInstallmentsFromPayment = Math.floor(effectivePaidAmount / monthlyAmount);
+    
+    return paidInstallmentsFromPayment;
+  };
+
+  // Função para verificar se o financiamento está quitado
+  const isFinancingFullyPaid = (expense: Expense) => {
+    if (!expense.is_financing) return false;
+    
+    const totalAmount = expense.financing_total_amount || 0;
+    const paidAmount = expense.financing_paid_amount || 0;
+    const discountAmount = expense.financing_discount_amount || 0;
+    
+    return (paidAmount + discountAmount) >= totalAmount;
+  };
+
   // Função corrigida para inserir instância com tipo apropriado
   const insertInstance = async (instanceData: any, forceType?: string) => {
     console.log('Inserindo instância:', instanceData);
@@ -318,42 +345,56 @@ export const useExpenses = () => {
           }
         }
 
-        // Financing installments
+        // Financing installments - CORRIGIDO para considerar pagamentos parciais
         if (expense.is_financing && expense.financing_months_total && expense.financing_total_amount) {
           const financingStart = expenseDate;
           const monthsSinceStart = (targetMonth.getFullYear() - financingStart.getFullYear()) * 12 +
                                    (targetMonth.getMonth() - financingStart.getMonth());
           
-          // Check if financing is fully paid
-          const totalAmount = expense.financing_total_amount;
-          const paidAmount = expense.financing_paid_amount || 0;
-          const discountAmount = expense.financing_discount_amount || 0;
-          const isFullyPaid = paidAmount >= (totalAmount - discountAmount);
+          // ✅ NOVA LÓGICA: Considerar pagamentos parciais
+          const isFullyPaid = isFinancingFullyPaid(expense);
+          const paidInstallmentsFromPayment = calculatePaidInstallmentsFromPartialPayment(expense);
           
-          // Only show installments if not fully paid and within the financing period
-          if (!isFullyPaid && monthsSinceStart >= 0 && monthsSinceStart < expense.financing_months_total) {
+          console.log(`🏦 Financiamento ${expense.title}:`, {
+            isFullyPaid,
+            paidInstallmentsFromPayment,
+            monthsSinceStart,
+            totalMonths: expense.financing_months_total
+          });
+          
+          // Só mostrar parcelas se não está totalmente pago E está dentro do período E não foi "pago" antecipadamente
+          if (!isFullyPaid && 
+              monthsSinceStart >= 0 && 
+              monthsSinceStart < expense.financing_months_total) {
+            
             const installmentNumber = monthsSinceStart + 1;
-            const installmentAmount = expense.financing_total_amount / expense.financing_months_total;
-            const monthlyDueDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), financingStart.getDate());
-            const instanceDateStr = format(monthlyDueDate, 'yyyy-MM-dd');
-            const key = `${expense.id}-${instanceDateStr}-financing-${installmentNumber}`;
             
-            const existingInstance = instanceMap.get(key);
-            
-            instances.push({
-              id: existingInstance?.id || `financing-${expense.id}-${installmentNumber}`,
-              expense_id: expense.id,
-              title: `${expense.title} - Parcela ${installmentNumber}/${expense.financing_months_total}`,
-              description: expense.description,
-              amount: installmentAmount,
-              category_id: expense.category_id,
-              due_date: instanceDateStr,
-              is_paid: existingInstance?.is_paid || false,
-              instance_type: 'financing',
-              installment_number: installmentNumber,
-              instance_date: instanceDateStr,
-              original_expense: expense,
-            });
+            // ✅ NOVA LÓGICA: Só mostrar se esta parcela não foi "paga" pelo pagamento antecipado
+            if (installmentNumber > paidInstallmentsFromPayment) {
+              const installmentAmount = expense.financing_total_amount / expense.financing_months_total;
+              const monthlyDueDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), financingStart.getDate());
+              const instanceDateStr = format(monthlyDueDate, 'yyyy-MM-dd');
+              const key = `${expense.id}-${instanceDateStr}-financing-${installmentNumber}`;
+              
+              const existingInstance = instanceMap.get(key);
+              
+              instances.push({
+                id: existingInstance?.id || `financing-${expense.id}-${installmentNumber}`,
+                expense_id: expense.id,
+                title: `${expense.title} - Parcela ${installmentNumber}/${expense.financing_months_total}`,
+                description: expense.description,
+                amount: installmentAmount,
+                category_id: expense.category_id,
+                due_date: instanceDateStr,
+                is_paid: existingInstance?.is_paid || false,
+                instance_type: 'financing',
+                installment_number: installmentNumber,
+                instance_date: instanceDateStr,
+                original_expense: expense,
+              });
+            } else {
+              console.log(`⏭️ Parcela ${installmentNumber} foi "paga" pelo pagamento antecipado`);
+            }
           }
         }
       }
@@ -375,14 +416,14 @@ export const useExpenses = () => {
     }
   };
 
-  // Generate ALL instances for a specific financing expense
+  // Generate ALL instances for a specific financing expense - CORRIGIDO
   const generateAllFinancingInstances = async (expense: Expense): Promise<ExpenseInstance[]> => {
     if (!expense.is_financing || !expense.financing_months_total || !expense.financing_total_amount) {
       return [];
     }
 
     try {
-      console.log('🏦 Gerando instâncias de financiamento para:', expense.title);
+      console.log('🏦 Gerando TODAS as instâncias de financiamento para:', expense.title);
       
       // Fetch ALL existing instances for this financing
       const { data: existingInstances, error } = await supabase
@@ -406,6 +447,18 @@ export const useExpenses = () => {
 
       const financingStart = new Date(expense.due_date);
       const installmentAmount = expense.financing_total_amount / expense.financing_months_total;
+      
+      // ✅ CORRIGIDO: Calcular quantas parcelas foram "pagas" antecipadamente
+      const paidInstallmentsFromPayment = calculatePaidInstallmentsFromPartialPayment(expense);
+      const isFullyPaid = isFinancingFullyPaid(expense);
+
+      console.log('💰 Status do financiamento:', {
+        paidInstallmentsFromPayment,
+        isFullyPaid,
+        totalAmount: expense.financing_total_amount,
+        paidAmount: expense.financing_paid_amount,
+        discountAmount: expense.financing_discount_amount
+      });
 
       // Generate all installments (1 to total months)
       for (let i = 1; i <= expense.financing_months_total; i++) {
@@ -415,15 +468,23 @@ export const useExpenses = () => {
         
         const existingInstance = instanceMap.get(i);
         
+        // ✅ NOVA LÓGICA: Marcar como "pago" se foi coberto pelo pagamento antecipado
+        let isPaidFromPartialPayment = false;
+        if (i <= paidInstallmentsFromPayment) {
+          isPaidFromPartialPayment = true;
+        }
+        
+        const finalIsPaid = existingInstance?.is_paid || isPaidFromPartialPayment;
+        
         instances.push({
           id: existingInstance?.id || `financing-${expense.id}-${i}`,
           expense_id: expense.id,
-          title: `${expense.title} - Parcela ${i}/${expense.financing_months_total}`,
+          title: `${expense.title} - Parcela ${i}/${expense.financing_months_total}${isPaidFromPartialPayment ? ' (Pago Antecipado)' : ''}`,
           description: expense.description,
           amount: installmentAmount,
           category_id: expense.category_id,
           due_date: instanceDateStr,
-          is_paid: existingInstance?.is_paid || false,
+          is_paid: finalIsPaid,
           instance_type: 'financing',
           installment_number: i,
           instance_date: instanceDateStr,
@@ -1042,5 +1103,8 @@ export const useExpenses = () => {
     getPaymentTransactions,
     calculateTotalPaidWithTransactions,
     resetAllPayments,
+    // ✅ NOVAS FUNÇÕES EXPOSTAS
+    calculatePaidInstallmentsFromPartialPayment,
+    isFinancingFullyPaid,
   };
 };
