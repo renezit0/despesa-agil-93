@@ -191,7 +191,7 @@ export const useExpenses = () => {
                   expense_id: expense.id,
                   title: `${expense.title} - Parcela ${instance.installment_number}/${expense.installments}`,
                   description: expense.description,
-                  amount: expense.amount,
+                  amount: instance.amount,
                   category_id: expense.category_id,
                   due_date: instance.instance_date,
                   is_paid: instance.is_paid,
@@ -287,7 +287,7 @@ export const useExpenses = () => {
         // Financing installments
         if (expense.is_financing && expense.financing_months_total && expense.financing_total_amount) {
           const financingStart = expenseDate;
-          const monthsSinceStart = (targetMonth.getFullYear() - financingStart.getFullYear()) * 12 + 
+          const monthsSinceStart = (targetMonth.getFullYear() - financingStart.getFullYear()) * 12 +
                                    (targetMonth.getMonth() - financingStart.getMonth());
           
           // Check if financing is fully paid
@@ -412,7 +412,7 @@ export const useExpenses = () => {
 
       for (let i = 1; i <= totalInstallments; i++) {
         const installmentDate = new Date(startDate);
-        installmentDate.setMonth(startDate.getMonth() + (i - 1)); // Corrigido para usar startDate consistentemente
+        installmentDate.setMonth(startDate.getMonth() + (i - 1));
         
         installmentInstances.push({
           expense_id: expense.id,
@@ -451,11 +451,11 @@ export const useExpenses = () => {
     try {
       const newPaidStatus = !instance.is_paid;
       
-      if (instance.instance_type === 'normal') {
-        // Update the original expense directly
+      if (instance.instance_type === 'normal' && instance.installment_number === undefined) {
+        // Update the original expense directly for non-installment normal expenses
         await updateExpense(instance.expense_id, { is_paid: newPaidStatus });
       } else {
-        // Create or update expense instance
+        // For installment, recurring, and financing instances, update/create in expense_instances
         const instanceData = {
           expense_id: instance.expense_id,
           user_id: user!.id,
@@ -467,14 +467,8 @@ export const useExpenses = () => {
           paid_at: newPaidStatus ? new Date().toISOString() : null,
         };
 
-        if (instance.id.startsWith('recurring-') || instance.id.startsWith('financing-')) {
-          // Create new instance
-          const { error } = await supabase
-            .from('expense_instances')
-            .insert(instanceData);
-          
-          if (error) throw error;
-        } else {
+        // Check if this instance already exists in the DB (by its ID, if it's not a generated one)
+        if (instance.id && !instance.id.startsWith('recurring-') && !instance.id.startsWith('financing-') && !instance.id.startsWith('normal-')) {
           // Update existing instance
           const { error } = await supabase
             .from('expense_instances')
@@ -485,6 +479,13 @@ export const useExpenses = () => {
             .eq('id', instance.id);
           
           if (error) throw error;
+        } else {
+          // Create new instance if it's a generated one (recurring, financing, or newly generated normal installment)
+          const { error } = await supabase
+            .from('expense_instances')
+            .insert(instanceData);
+          
+          if (error) throw error;
         }
       }
 
@@ -492,6 +493,11 @@ export const useExpenses = () => {
       await fetchExpenses();
       // Regenerate instances for the current month to reflect changes
       generateExpenseInstances(new Date()); // Assuming current month is always relevant after a toggle
+
+      // Update financing paid months if it's a financing instance
+      if (instance.instance_type === 'financing') {
+        await updateFinancingPaidMonths(instance.expense_id);
+      }
 
       toast({
         title: "Status de pagamento atualizado",
@@ -589,10 +595,10 @@ export const useExpenses = () => {
       console.log('✅ Despesa criada com sucesso:', data);
 
       // Se for uma despesa parcelada, criar as instâncias automaticamente
-      if (expenseData.installments && expenseData.installments > 1) {
-        console.log(`🔄 Criando ${expenseData.installments} parcelas para: ${data.title}`);
+      if (data.installments && data.installments > 1) {
+        console.log(`🔄 Criando ${data.installments} parcelas para: ${data.title}`);
         try {
-          await generateInstallmentInstances(data, expenseData.installments);
+          await generateInstallmentInstances(data, data.installments);
           console.log('✅ Parcelas criadas com sucesso!');
         } catch (installmentError) {
           console.error('❌ Erro ao criar parcelas:', installmentError);
