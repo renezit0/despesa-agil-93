@@ -65,19 +65,11 @@ export const useExpenses = () => {
 
   // Helper function to map instance types to database-expected values
   const mapInstanceTypeForDB = (instanceType: string, hasInstallments: boolean) => {
-    // Check if it's an installment (normal expense with installment_number)
     if (instanceType === 'normal' && hasInstallments) {
-      return 'installment'; // Database likely expects 'installment' for installment payments
+      return 'installment';
     }
     
-    // Map other types
-    const typeMapping: Record<string, string> = {
-      'normal': 'single',      // Single payment might be expected as 'single'
-      'recurring': 'recurring', // This should be correct
-      'financing': 'financing'  // This should be correct
-    };
-    
-    return typeMapping[instanceType] || instanceType;
+    return instanceType; // Usar o tipo original agora que o banco aceita todos
   };
 
   // Função para buscar TODAS as instâncias (para o gráfico) sem resetar
@@ -193,7 +185,7 @@ export const useExpenses = () => {
           if (expense.installments && expense.installments > 1) {
             const monthlyInstances = (existingInstances || []).filter(instance => 
               instance.expense_id === expense.id && 
-              instance.instance_type === 'normal' &&
+              (instance.instance_type === 'normal' || instance.instance_type === 'installment') &&
               new Date(instance.instance_date).getMonth() === targetMonth.getMonth() &&
               new Date(instance.instance_date).getFullYear() === targetMonth.getFullYear()
             );
@@ -210,7 +202,7 @@ export const useExpenses = () => {
                   category_id: expense.category_id,
                   due_date: instance.instance_date,
                   is_paid: instance.is_paid,
-                  instance_type: expense.is_financing ? 'financing' : 'normal',
+                  instance_type: 'normal',
                   installment_number: instance.installment_number,
                   instance_date: instance.instance_date,
                   original_expense: expense,
@@ -218,7 +210,6 @@ export const useExpenses = () => {
               });
             } else {
               // Se não existem instâncias para este mês, gerá-las com base na data de vencimento original
-              // e no número de parcelas, se a parcela cair neste mês
               const originalDueDate = new Date(expense.due_date);
               for (let i = 1; i <= expense.installments; i++) {
                 const installmentDate = new Date(originalDueDate);
@@ -239,7 +230,7 @@ export const useExpenses = () => {
                     category_id: expense.category_id,
                     due_date: instanceDateStr,
                     is_paid: existingInstance?.is_paid || false,
-                    instance_type: expense.is_financing ? 'financing' : 'normal',
+                    instance_type: 'normal',
                     installment_number: i,
                     instance_date: instanceDateStr,
                     original_expense: expense,
@@ -473,27 +464,25 @@ export const useExpenses = () => {
     try {
       const newPaidStatus = !instance.is_paid;
       
-      // Atualizar o estado local IMEDIATAMENTE para feedback visual
+      // Atualizar estado local IMEDIATAMENTE para feedback visual
       setExpenseInstances(prev => prev.map(inst => 
-        inst.id === instance.id 
-          ? { ...inst, is_paid: newPaidStatus }
-          : inst
+        inst.id === instance.id ? { ...inst, is_paid: newPaidStatus } : inst
       ));
 
-      // CASO 1: Despesa normal sem parcelas (atualizar expense diretamente)
+      // CASO 1: Despesa normal sem parcelas - atualizar expense diretamente
       if (instance.instance_type === 'normal' && !instance.installment_number) {
         console.log('Updating expense directly (normal without installments)');
         await updateExpense(instance.expense_id, { is_paid: newPaidStatus });
         
         toast({
           title: "Status atualizado",
-          description: "Status da despesa foi atualizado com sucesso.",
+          description: "Gasto atualizado com sucesso.",
         });
         return;
       }
 
-      // CASO 2: Instância existente no banco (ID real)
-      if (instance.id && !instance.id.startsWith('recurring-') && !instance.id.startsWith('financing-') && !instance.id.startsWith('normal-')) {
+      // CASO 2: Instância existente no banco - atualizar
+      if (instance.id && !instance.id.includes('-')) {
         console.log('Updating existing instance in database');
         
         const { error } = await supabase
@@ -504,85 +493,40 @@ export const useExpenses = () => {
           })
           .eq('id', instance.id);
         
-        if (error) {
-          console.error('Error updating existing instance:', error);
-          throw error;
-        }
-
+        if (error) throw error;
         console.log('Existing instance updated successfully');
       } 
-      // CASO 3: Nova instância (ID gerado)
+      // CASO 3: Nova instância - criar no banco
       else {
         console.log('Creating new instance in database');
         
-        // Determinar o tipo correto para o banco
-        let dbInstanceType = instance.instance_type;
-        if (instance.instance_type === 'normal' && instance.installment_number) {
-          dbInstanceType = 'installment';
-        }
-
-        const instanceData = {
-          expense_id: instance.expense_id,
-          user_id: user!.id,
-          instance_date: instance.instance_date,
-          instance_type: dbInstanceType,
-          installment_number: instance.installment_number || null,
-          amount: instance.amount,
-          is_paid: newPaidStatus,
-          paid_at: newPaidStatus ? new Date().toISOString() : null,
-        };
-
-        console.log('New instance data:', instanceData);
+        const dbInstanceType = mapInstanceTypeForDB(instance.instance_type, !!instance.installment_number);
 
         const { data, error } = await supabase
           .from('expense_instances')
-          .insert(instanceData)
+          .insert({
+            expense_id: instance.expense_id,
+            user_id: user!.id,
+            instance_date: instance.instance_date,
+            instance_type: dbInstanceType,
+            installment_number: instance.installment_number || null,
+            amount: instance.amount,
+            is_paid: newPaidStatus,
+            paid_at: newPaidStatus ? new Date().toISOString() : null,
+          })
           .select()
           .single();
         
-        if (error) {
-          console.error('Error on first attempt:', error);
-          
-          // Se falhou, tentar com 'single' para despesas normais
-          if (dbInstanceType === 'normal') {
-            console.log('Retrying with type "single"');
-            
-            const retryData = { ...instanceData, instance_type: 'single' };
-            const { data: retryResult, error: retryError } = await supabase
-              .from('expense_instances')
-              .insert(retryData)
-              .select()
-              .single();
-            
-            if (retryError) {
-              console.error('Error on second attempt:', retryError);
-              throw retryError;
-            }
-            
-            // Atualizar o ID da instância com o ID real
-            if (retryResult) {
-              setExpenseInstances(prev => prev.map(inst => 
-                inst.id === instance.id 
-                  ? { ...inst, id: retryResult.id }
-                  : inst
-              ));
-            }
-            
-            console.log('New instance created successfully (type: single)');
-          } else {
-            throw error;
-          }
-        } else {
-          // Sucesso na primeira tentativa
-          if (data) {
-            setExpenseInstances(prev => prev.map(inst => 
-              inst.id === instance.id 
-                ? { ...inst, id: data.id }
-                : inst
-            ));
-          }
-          console.log('New instance created successfully (first attempt)');
+        if (error) throw error;
+        
+        // Atualizar ID local com o ID real do banco
+        if (data) {
+          setExpenseInstances(prev => prev.map(inst => 
+            inst.id === instance.id ? { ...inst, id: data.id } : inst
+          ));
         }
+        
+        console.log('New instance created successfully');
       }
 
       // Atualizar contagem de parcelas pagas para financiamentos
@@ -595,32 +539,21 @@ export const useExpenses = () => {
       await fetchExpenses();
 
       toast({
-        title: "Status atualizado",
-        description: "Status da instância foi atualizado com sucesso.",
+        title: "Status atualizado", 
+        description: "Instância atualizada com sucesso.",
       });
 
     } catch (error) {
       console.error('Complete error in toggleInstancePaid:', error);
       
-      // Reverter o estado local em caso de erro
+      // Reverter estado local em caso de erro
       setExpenseInstances(prev => prev.map(inst => 
-        inst.id === instance.id 
-          ? { ...inst, is_paid: instance.is_paid } // Voltar ao estado original
-          : inst
+        inst.id === instance.id ? { ...inst, is_paid: instance.is_paid } : inst
       ));
 
-      // Mostrar detalhes do erro
-      const errorMessage = error?.message || 'Erro desconhecido';
-      console.error('Error details:', {
-        message: errorMessage,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint
-      });
-
       toast({
-        title: "Erro ao atualizar status",
-        description: `Não foi possível atualizar: ${errorMessage}`,
+        title: "Erro ao atualizar",
+        description: error?.message || "Erro desconhecido",
         variant: "destructive",
       });
     }
