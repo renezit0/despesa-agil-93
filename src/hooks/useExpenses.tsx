@@ -467,19 +467,17 @@ export const useExpenses = () => {
     try {
       const newPaidStatus = !instance.is_paid;
       
+      // Atualizar o estado local IMEDIATAMENTE para feedback visual
+      setExpenseInstances(prev => prev.map(inst => 
+        inst.id === instance.id 
+          ? { ...inst, is_paid: newPaidStatus }
+          : inst
+      ));
+
       if (instance.instance_type === 'normal' && instance.installment_number === undefined) {
         // Update the original expense directly for non-installment normal expenses
         await updateExpense(instance.expense_id, { is_paid: newPaidStatus });
       } else {
-        // First, let's check what instance_type values exist in the database
-        const { data: existingInstances } = await supabase
-          .from('expense_instances')
-          .select('instance_type')
-          .limit(5);
-        
-        console.log('Existing instance_type values:', [...new Set(existingInstances?.map(i => i.instance_type))]);
-
-        // Map the instance type to what the database expects
         const dbInstanceType = mapInstanceTypeForDB(
           instance.instance_type, 
           instance.installment_number !== undefined
@@ -489,7 +487,7 @@ export const useExpenses = () => {
           expense_id: instance.expense_id,
           user_id: user!.id,
           instance_date: instance.instance_date,
-          instance_type: dbInstanceType, // Use mapped type
+          instance_type: dbInstanceType,
           installment_number: instance.installment_number || null,
           amount: instance.amount,
           is_paid: newPaidStatus,
@@ -515,16 +513,20 @@ export const useExpenses = () => {
           const possibleTypes = ['installment', 'single', 'recurring', 'financing', 'monthly', 'normal'];
           let insertSuccess = false;
           let lastError = null;
+          let newInstanceId = null;
 
           for (const testType of possibleTypes) {
             try {
               const testData = { ...instanceData, instance_type: testType };
-              const { error } = await supabase
+              const { data, error } = await supabase
                 .from('expense_instances')
-                .insert(testData);
+                .insert(testData)
+                .select()
+                .single();
               
-              if (!error) {
+              if (!error && data) {
                 console.log(`✅ Successfully inserted with instance_type: ${testType}`);
+                newInstanceId = data.id;
                 insertSuccess = true;
                 break;
               }
@@ -537,20 +539,33 @@ export const useExpenses = () => {
 
           if (!insertSuccess) {
             console.error('All instance_type values failed. Last error:', lastError);
+            // Reverter o estado local em caso de erro
+            setExpenseInstances(prev => prev.map(inst => 
+              inst.id === instance.id 
+                ? { ...inst, is_paid: !newPaidStatus }
+                : inst
+            ));
             throw lastError;
+          }
+
+          // Se uma nova instância foi criada, atualizar o ID local
+          if (newInstanceId) {
+            setExpenseInstances(prev => prev.map(inst => 
+              inst.id === instance.id 
+                ? { ...inst, id: newInstanceId, is_paid: newPaidStatus }
+                : inst
+            ));
           }
         }
       }
-
-      // Refetch expenses to update UI
-      await fetchExpenses();
-      // Regenerate instances for the current month to reflect changes
-      generateExpenseInstances(new Date());
 
       // Update financing paid months if it's a financing instance
       if (instance.instance_type === 'financing') {
         await updateFinancingPaidMonths(instance.expense_id);
       }
+
+      // Refetch expenses to ensure consistency (mas não regenerar instâncias)
+      await fetchExpenses();
 
       toast({
         title: "Status de pagamento atualizado",
@@ -559,6 +574,14 @@ export const useExpenses = () => {
 
     } catch (error) {
       console.error('Error toggling instance paid status:', error);
+      
+      // Reverter o estado local em caso de erro
+      setExpenseInstances(prev => prev.map(inst => 
+        inst.id === instance.id 
+          ? { ...inst, is_paid: !instance.is_paid }
+          : inst
+      ));
+
       toast({
         title: "Erro ao atualizar status",
         description: "Não foi possível atualizar o status de pagamento.",
