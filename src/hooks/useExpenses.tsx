@@ -460,12 +460,15 @@ export const useExpenses = () => {
           expense_id: instance.expense_id,
           user_id: user!.id,
           instance_date: instance.instance_date,
-          instance_type: instance.original_expense.is_financing ? 'financing' : (instance.original_expense.is_recurring ? 'recurring' : 'normal'),
+          // FIX: Use the instance's type directly instead of recalculating
+          instance_type: instance.instance_type,
           installment_number: instance.installment_number || null,
           amount: instance.amount,
           is_paid: newPaidStatus,
           paid_at: newPaidStatus ? new Date().toISOString() : null,
         };
+
+        console.log('Creating instance with data:', instanceData); // Debug log
 
         // Check if this instance already exists in the DB (by its ID, if it's not a generated one)
         if (instance.id && !instance.id.startsWith('recurring-') && !instance.id.startsWith('financing-') && !instance.id.startsWith('normal-')) {
@@ -480,12 +483,23 @@ export const useExpenses = () => {
           
           if (error) throw error;
         } else {
-          // Create new instance if it's a generated one (recurring, financing, or newly generated normal installment)
+          // Validate instance_type before inserting
+          const validInstanceTypes = ['normal', 'recurring', 'financing'];
+          if (!validInstanceTypes.includes(instanceData.instance_type)) {
+            console.error('Invalid instance_type:', instanceData.instance_type);
+            throw new Error(`Invalid instance_type: ${instanceData.instance_type}`);
+          }
+
+          // Create new instance if it's a generated one
           const { error } = await supabase
             .from('expense_instances')
             .insert(instanceData);
           
-          if (error) throw error;
+          if (error) {
+            console.error('Database insert error:', error);
+            console.error('Failed data:', instanceData);
+            throw error;
+          }
         }
       }
 
